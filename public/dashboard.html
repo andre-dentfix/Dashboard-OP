@@ -242,7 +242,7 @@
   <div class="logo">
     <div class="logo-icon">QC</div>
     <div>
-      <div class="logo-text">Controle de OPs</div>
+      <div class="logo-text">Dashboard de OPs</div>
       <div class="logo-sub">Análise de Não-Conformidades por Setor</div>
     </div>
   </div>
@@ -619,14 +619,14 @@ function kpis(){
       <div class="kpi-sub">${label}</div>
     </div>
     <div class="kpi-card" style="--kpi-color:${CLR.ok}">
-      <div class="kpi-label">OPs Conformes</div>
+      <div class="kpi-label">OPs Fechadas Conformes</div>
       <div class="kpi-value">${totC.toLocaleString("pt-BR")}</div>
       <div class="kpi-sub">${totOps?(totC/totOps*100).toFixed(1):0}% do total de OPs</div>
     </div>
     <div class="kpi-card" style="--kpi-color:${CLR.accent}">
-      <div class="kpi-label">NCs por Setor</div>
+      <div class="kpi-label">Ocorrências de NC por setor</div>
       <div class="kpi-value">${totNC.toLocaleString("pt-BR")}</div>
-      <div class="kpi-sub">Contagem individual por setor</div>
+      <div class="kpi-sub">Uma OP pode gerar mais de uma ocorrência</div>
     </div>
     <div class="kpi-card" style="--kpi-color:${pctCol(+taxa)}">
       <div class="kpi-label">Taxa de NC</div>
