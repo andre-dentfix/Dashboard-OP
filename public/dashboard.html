@@ -178,24 +178,6 @@
   .bar-wrap { display: flex; align-items: center; gap: 8px; }
   .bar-bg   { flex: 1; height: 6px; background: var(--border); border-radius: 3px; overflow: hidden; min-width: 60px; }
   .bar-fill { height: 100%; border-radius: 3px; transition: width .4s; }
-    .bar-fill.normal {
-  background: var(--accent);
-    }
-        .bar-fill.warning {
-      background: var(--warn);
-    }
-        .bar-fill.critical {
-      background: var(--danger);
-    }
-        .taxa-label.normal {
-      color: var(--accent);
-    }
-        .taxa-label.warning {
-      color: var(--warn);
-    }
-        .taxa-label.critical {
-      color: var(--danger);
-    }
   .bar-lbl  { font-size: 12px; font-weight: 600; min-width: 40px; text-align: right; }
   .delta    { font-size: 11px; padding: 2px 7px; border-radius: 8px; font-weight: 600; }
 .d-up  { background: rgba(230,57,70,.15);   color: var(--accent); }
@@ -214,28 +196,28 @@
     font-family: 'DM Sans', sans-serif;
     transition: all .2s;
   }
-  
   .export-btn:hover {
     border-color: var(--accent);
     color: var(--text);
     background: var(--surf2);
   }
+
   .expand-btn {
-  background: transparent;
-  border: 1px solid var(--border);
-  color: var(--muted);
-  padding: 10px 20px;
-  border-radius: 8px;
-  cursor: pointer;
-  font-size: 13px;
-  font-family: 'DM Sans', sans-serif;
-  transition: all .2s;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  width: 100%;
-  margin-top: 0;
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--muted);
+    padding: 10px 20px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 13px;
+    font-family: 'DM Sans', sans-serif;
+    transition: all .2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    width: 100%;
+    margin-top: 0;
   }
   .expand-btn:hover {
     border-color: var(--accent);
@@ -386,13 +368,12 @@
   <div class="section-title">Histórico Mensal Detalhado</div>
   <div class="table-card">
     <div class="table-header">
-    <div class="table-title">Resumo por Mês</div>
-    <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
-      <div class="table-badge" id="tbl-monthly-count"></div>
-      <button class="export-btn" id="export-monthly-btn">Exportar CSV</button>
-  </div>
-
-</div>
+      <div class="table-title">Resumo por Mês</div>
+      <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+        <div class="table-badge" id="tbl-monthly-count"></div>
+        <button class="export-btn" id="export-monthly-btn">Exportar CSV</button>
+      </div>
+    </div>
     <div style="overflow-x:auto">
 <table>
         <thead><tr>
@@ -621,9 +602,7 @@ function kpis(){
   const totOps = data.reduce((s,d)=>s+d.T,0);
   const totNC  = data.reduce((s,d)=>s+d.NC,0);
   const totC   = data.reduce((s,d)=>s+d.C,0);
-  const totFechadas = totC + totNC;
-  const taxa = totFechadas ? (totNC / totFechadas * 100).toFixed(1) : "0.0";
-  const totPendentes = Math.max(totOps - totC - totNC, 0);
+  const taxa   = totOps?(totNC/totOps*100).toFixed(1):"0.0";
 
   // Comparativo
   let prevD=null, prevLabel="";
@@ -669,15 +648,10 @@ function kpis(){
       <div class="kpi-value">${totNC.toLocaleString("pt-BR")}</div>
       <div class="kpi-sub">Uma OP pode gerar mais de uma ocorrência</div>
     </div>
-    <div class="kpi-card" style="--kpi-color:${CLR.warn}">
-    <div class="kpi-label">OPs Pendentes de Fechamento</div>
-    <div class="kpi-value">${totPendentes.toLocaleString("pt-BR")}</div>
-    <div class="kpi-sub">OPs que passaram pelo SGQ, mas ainda não foram finalizadas</div>
-    </div>
     <div class="kpi-card" style="--kpi-color:${pctCol(+taxa)}">
       <div class="kpi-label">Taxa de NC</div>
       <div class="kpi-value">${taxa}%</div>
-      <div class="kpi-sub">Sobre OPs fechadas no período</div>
+      <div class="kpi-sub">NCs setoriais / total de OPs</div>
       ${deltaHtml}
       <span class="kpi-badge ${+taxa<=20?"bg":+taxa<=30?"bw":"bb"}">
         ${+taxa<=20?"▼ Controlado":+taxa<=30?"◆ Atenção":"▲ Crítico"}
@@ -944,8 +918,7 @@ function tblMonthly(){
   
   const allData = RAW.slice().reverse(); // para delta
   document.getElementById("tbody-monthly").innerHTML = displayData.map((d)=>{
-    const fechadas = r.C + r.NC;
-    const taxa = fechadas ? (r.NC / fechadas * 100).toFixed(1) : "0.0";
+    const taxa = d.T?(d.NC/d.T*100).toFixed(1):"0.0";
     const col  = pctCol(+taxa);
     const idx  = allData.findIndex(x=>x.m===d.m);
     const prev = allData[idx+1];
@@ -1026,7 +999,6 @@ function getFilteredMonthlyData(){
   if(activeMonth){
     return RAW.filter(d => d.m === activeMonth);
   }
-
   return filtByYear(activeYear).slice().reverse();
 }
 
@@ -1042,14 +1014,7 @@ function exportMonthlyCSV(){
     ["Mês", "Total de OPs", "OPs Conformes", "OPs com NC", "Taxa NC %"],
     ...data.map(d => {
       const taxa = d.T ? (d.NC / d.T * 100).toFixed(1).replace(".", ",") : "0,0";
-
-      return [
-        fmtM(d.m),
-        d.T,
-        d.C,
-        d.NC,
-        taxa
-      ];
+      return [fmtM(d.m), d.T, d.C, d.NC, taxa];
     })
   ];
 
@@ -1076,7 +1041,7 @@ function exportMonthlyCSV(){
 
   URL.revokeObjectURL(url);
 }
-  
+
 // ── Render principal ──
 function renderAll(){
   destroyAll();
@@ -1123,9 +1088,9 @@ document.getElementById("clear-month-btn").addEventListener("click",()=>{
   updateMonthUI();
   renderAll();
 });
-    
+
 document.getElementById("export-monthly-btn").addEventListener("click", exportMonthlyCSV);
-  
+
 document.getElementById("expand-monthly-btn").addEventListener("click",()=>{
   monthlyExpanded = !monthlyExpanded;
   tblMonthly();
