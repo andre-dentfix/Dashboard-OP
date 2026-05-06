@@ -1,3 +1,4 @@
+import { KpiCardReact } from "./KpiCardReact"
 export function DashboardReact() {
   return (
     <main className="min-h-screen bg-slate-950 text-slate-100">
@@ -17,15 +18,31 @@ export function DashboardReact() {
           </p>
         </header>
 
-        <section className="rounded-2xl border border-slate-800 bg-slate-900/70 p-6">
-          <h2 className="text-lg font-semibold">Migração em andamento</h2>
-
-          <p className="mt-2 text-sm leading-6 text-slate-400">
-            Esta nova página será usada para migrar o dashboard atual em HTML
-            para uma estrutura React mais organizada, escalável e fácil de
-            manter.
-          </p>
-        </section>
+        <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <KpiCardReact
+          title="Total de OPs"
+          value="244"
+          description="OPs que passaram pelo SGQ no período"
+        />
+      
+        <KpiCardReact
+          title="OPs Conformes"
+          value="192"
+          description="Ordens finalizadas sem não conformidade"
+        />
+      
+        <KpiCardReact
+          title="OPs com NC"
+          value="49"
+          description="Ordens finalizadas com não conformidade"
+        />
+      
+        <KpiCardReact
+          title="OPs Pendentes"
+          value="3"
+          description="OPs que passaram pelo SGQ, mas ainda não foram fechadas"
+        />
+    </section>
       </div>
     </main>
   )
