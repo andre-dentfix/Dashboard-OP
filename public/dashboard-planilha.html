@@ -988,7 +988,14 @@ function applySheetData(data){
 
 async function loadSheetData(){
   try{
-    const response = await fetch(GOOGLE_SHEETS_CSV_URL + "&cacheBust=" + Date.now(), {cache:"no-store"});
+    const csvUrl = GOOGLE_SHEETS_CSV_URL + "&cacheBust=" + Date.now();
+    const response = await fetch(csvUrl, {
+      cache: "no-store",
+      headers: {
+        "Cache-Control": "no-cache",
+        "Pragma": "no-cache"
+      }
+    });
     if(!response.ok) throw new Error("HTTP " + response.status);
 
     const csvText = await response.text();
