@@ -943,7 +943,8 @@ function tblMonthly(){
   
   const allData = RAW.slice().reverse(); // para delta
   document.getElementById("tbody-monthly").innerHTML = displayData.map((d)=>{
-    const taxa = d.T?(d.NC/d.T*100).toFixed(1):"0.0";
+    const fechadas = r.C + r.NC;
+    const taxa = fechadas ? (r.NC / fechadas * 100).toFixed(1) : "0.0";
     const col  = pctCol(+taxa);
     const idx  = allData.findIndex(x=>x.m===d.m);
     const prev = allData[idx+1];
