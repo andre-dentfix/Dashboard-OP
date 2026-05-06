@@ -1207,7 +1207,117 @@ function parseGoogleSheetCSV(csvText) {
   });
 }
 
+function getCell(row, possibleHeaders) {
+  for (const header of possibleHeaders) {
+    const normalized = normalizeHeader(header);
+
+    if (row[normalized] !== undefined) {
+      return row[normalized];
+    }
+  }
+
+  return "";
+}
+
+function monthKeyFromDate(value) {
+  const text = String(value || "").trim();
+
+  if (!text) return "";
+
+  // Formato brasileiro: dd/mm/aaaa
+  const brMatch = text.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/);
+
+  if (brMatch) {
+    const month = brMatch[2].padStart(2, "0");
+    let year = brMatch[3];
+
+    if (year.length === 2) {
+      year = `20${year}`;
+    }
+
+    return `${year}-${month}`;
+  }
+
+  // Formato ISO: aaaa-mm-dd
+  const isoMatch = text.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+
+  if (isoMatch) {
+    const year = isoMatch[1];
+    const month = isoMatch[2].padStart(2, "0");
+
+    return `${year}-${month}`;
+  }
+
+  return "";
+}
+
+function isFinalizada(value) {
+  const text = normalizeHeader(value);
+
+  return text === "x" || text === "sim" || text === "s" || text === "finalizada";
+}
+
+function isNaoConforme(value) {
+  const text = normalizeHeader(value);
+
+  return (
+    text === "nc" ||
+    text.includes("nao conforme") ||
+    text.includes("nao-conforme") ||
+    text.includes("nao conformidade") ||
+    text.includes("não conforme")
+  );
+}
+
+function isConforme(value) {
+  const text = normalizeHeader(value);
+
+  if (isNaoConforme(value)) {
+    return false;
+  }
+
+  return text === "c" || text.includes("conforme");
+}
+
+function buildRawFromSheetRows(rows) {
+  const monthlyMap = {};
+
+  rows.forEach(row => {
+    const dataFechamento = getCell(row, ["Data de fechamento"]);
+    const situacao = getCell(row, ["Situação do fechamento"]);
+    const finalizada = getCell(row, ["Finalizadas"]);
+
+    const monthKey = monthKeyFromDate(dataFechamento);
+
+    if (!monthKey) {
+      return;
+    }
+
+    if (!monthlyMap[monthKey]) {
+      monthlyMap[monthKey] = {
+        m: monthKey,
+        T: 0,
+        C: 0,
+        NC: 0,
+      };
+    }
+
+    monthlyMap[monthKey].T += 1;
+
+    if (isFinalizada(finalizada)) {
+      if (isNaoConforme(situacao)) {
+        monthlyMap[monthKey].NC += 1;
+      } else if (isConforme(situacao)) {
+        monthlyMap[monthKey].C += 1;
+      }
+    }
+  });
+
+  return Object.values(monthlyMap).sort((a, b) => a.m.localeCompare(b.m));
+}  
+  
 async function loadGoogleSheetData() {
+  async function loadGoogleSheetData() {
   try {
     const response = await fetch(GOOGLE_SHEETS_CSV_URL);
 
@@ -1217,9 +1327,19 @@ async function loadGoogleSheetData() {
 
     const csvText = await response.text();
     const rows = parseGoogleSheetCSV(csvText);
+    const sheetRaw = buildRawFromSheetRows(rows);
 
-    console.log("Linhas carregadas da planilha:", rows.length);
-    console.log("Primeira linha:", rows[0]);
+    if (!sheetRaw.length) {
+      console.warn("A planilha foi carregada, mas nenhum dado mensal foi identificado.");
+      return;
+    }
+
+    RAW = sheetRaw;
+
+    console.log("Dados mensais carregados da planilha:", RAW);
+
+    updateMonthUI();
+    renderAll();
   } catch (error) {
     console.error("Erro ao carregar planilha:", error);
   }
