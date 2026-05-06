@@ -621,6 +621,7 @@ function kpis(){
   const totNC  = data.reduce((s,d)=>s+d.NC,0);
   const totC   = data.reduce((s,d)=>s+d.C,0);
   const taxa   = totOps?(totNC/totOps*100).toFixed(1):"0.0";
+  const totPendentes = Math.max(totOps - totC - totNC, 0);
 
   // Comparativo
   let prevD=null, prevLabel="";
@@ -665,6 +666,11 @@ function kpis(){
       <div class="kpi-label">Ocorrências de NC por setor</div>
       <div class="kpi-value">${totNC.toLocaleString("pt-BR")}</div>
       <div class="kpi-sub">Uma OP pode gerar mais de uma ocorrência</div>
+    </div>
+    <div class="kpi-card" style="--kpi-color:${CLR.warn}">
+    <div class="kpi-label">OPs Pendentes de Fechamento</div>
+    <div class="kpi-value">${totPendentes.toLocaleString("pt-BR")}</div>
+    <div class="kpi-sub">OPs que passaram pelo SGQ, mas ainda não foram finalizadas</div>
     </div>
     <div class="kpi-card" style="--kpi-color:${pctCol(+taxa)}">
       <div class="kpi-label">Taxa de NC</div>
