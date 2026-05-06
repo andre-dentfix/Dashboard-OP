@@ -682,18 +682,62 @@ function monthKeyFromDate(value){
 
 function isFinalizada(value){
   const t = normalizeText(value);
-  return t === "x" || t === "sim" || t === "s" || t === "finalizada" || t === "finalizado";
+  return (
+    t === "x" ||
+    t === "sim" ||
+    t === "s" ||
+    t === "true" ||
+    t === "verdadeiro" ||
+    t === "1" ||
+    t === "ok" ||
+    t === "yes" ||
+    t === "y" ||
+    t === "✓" ||
+    t === "✔" ||
+    t.includes("finaliz") ||
+    t.includes("fechad")
+  );
 }
 
 function isNaoConforme(value){
-  const t = normalizeText(value);
-  return t === "nc" || t.includes("nao conforme") || t.includes("nao-conforme") || t.includes("nao conformidade") || t.includes("nao-conformidade");
+  const t = normalizeText(value)
+    .replace(/[.]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  return (
+    t === "nc" ||
+    t === "n c" ||
+    t === "n/c" ||
+    t === "n-c" ||
+    t.includes("com nc") ||
+    t.includes("c/ nc") ||
+    t.includes("c/nc") ||
+    t.includes("nao conforme") ||
+    t.includes("nao-conforme") ||
+    t.includes("nao conformidade") ||
+    t.includes("nao-conformidade") ||
+    t.includes("nao conf") ||
+    t.includes("reprovad")
+  );
 }
 
 function isConforme(value){
-  const t = normalizeText(value);
+  const t = normalizeText(value)
+    .replace(/[.]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
   if(isNaoConforme(value)) return false;
-  return t === "c" || t === "conforme" || t.includes("conforme");
+
+  return (
+    t === "c" ||
+    t === "ok" ||
+    t === "conforme" ||
+    t.includes("conforme") ||
+    t.includes("aprovad") ||
+    t.includes("sem nc")
+  );
 }
 
 function normalizeSectorName(value){
@@ -787,6 +831,7 @@ function buildDataFromSheetRows(rows){
   const monthly = {};
   const setorMensal = {};
   const motivos = {};
+  const opMap = {};
 
   rows.forEach(row=>{
     const dataFechamento = getCell(row,["Data de fechamento"]);
@@ -796,30 +841,58 @@ function buildDataFromSheetRows(rows){
     const setores = getCell(row,["Setor (es)","Setor(es)","Setores"]);
     const finalizadas = getCell(row,["Finalizadas","Finalizada"]);
     const m = monthKeyFromDate(dataFechamento);
+    const op = String(numeroOP || "").trim();
 
     // Ignora linhas vazias, títulos repetidos e datas fora do período real.
-    if(!m || !numeroOP) return;
+    if(!m || !op) return;
 
-    if(!monthly[m]) monthly[m] = {m,T:0,C:0,NC:0};
-    monthly[m].T += 1;
+    // Conta OP por número de OP, evitando duplicar total/conformes/NC caso a planilha tenha mais de uma linha para a mesma OP.
+    const key = `${m}||${op}`;
 
-    if(!isFinalizada(finalizadas)) return;
+    if(!opMap[key]){
+      opMap[key] = {
+        m,
+        op,
+        isFinalizada:false,
+        isNC:false,
+        isC:false,
+        setores:[],
+        motivos:[]
+      };
+    }
 
-    if(isNaoConforme(situacao)){
-      monthly[m].NC += 1;
+    if(isFinalizada(finalizadas)) opMap[key].isFinalizada = true;
+    if(isNaoConforme(situacao)) opMap[key].isNC = true;
+    if(isConforme(situacao)) opMap[key].isC = true;
 
-      const motivo = reasonCategory(observacoes);
-      if(motivo){
+    splitSectors(setores).forEach(setor=>{
+      if(!opMap[key].setores.includes(setor)) opMap[key].setores.push(setor);
+    });
+
+    const motivo = reasonCategory(observacoes);
+    if(motivo && !opMap[key].motivos.includes(motivo)) opMap[key].motivos.push(motivo);
+  });
+
+  Object.values(opMap).forEach(op=>{
+    if(!monthly[op.m]) monthly[op.m] = {m:op.m,T:0,C:0,NC:0};
+    monthly[op.m].T += 1;
+
+    if(!op.isFinalizada) return;
+
+    // Prioridade para NC: se uma OP tiver qualquer indicação de NC, ela entra como NC, não como conforme.
+    if(op.isNC){
+      monthly[op.m].NC += 1;
+
+      op.motivos.forEach(motivo=>{
         motivos[motivo] = (motivos[motivo] || 0) + 1;
-      }
-
-      const sectorList = splitSectors(setores);
-      if(!setorMensal[m]) setorMensal[m] = {};
-      sectorList.forEach(setor=>{
-        setorMensal[m][setor] = (setorMensal[m][setor] || 0) + 1;
       });
-    } else if(isConforme(situacao)){
-      monthly[m].C += 1;
+
+      if(!setorMensal[op.m]) setorMensal[op.m] = {};
+      op.setores.forEach(setor=>{
+        setorMensal[op.m][setor] = (setorMensal[op.m][setor] || 0) + 1;
+      });
+    } else if(op.isC){
+      monthly[op.m].C += 1;
     }
   });
 
@@ -848,6 +921,13 @@ function buildDataFromSheetRows(rows){
   });
 
   const motivosOrdenados = Object.fromEntries(Object.entries(motivos).sort((a,b)=>b[1]-a[1]));
+
+  console.log("Diagnóstico planilha:", {
+    linhasImportadas: rows.length,
+    opsUnicas: Object.keys(opMap).length,
+    primeiroRegistro: Object.values(opMap)[0],
+    RAW: raw
+  });
 
   return {
     RAW: raw,
