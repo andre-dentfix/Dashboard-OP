@@ -1,11 +1,20 @@
 import { KpiCardReact } from "./KpiCardReact"
+import { monthlyDashboardData } from "@/data/dashboardData"
+
 export function DashboardReact() {
+  const selectedMonth = monthlyDashboardData[0]
+  
+  const totalOps = selectedMonth.totalOps
+  const conformes = selectedMonth.conformes
+  const naoConformes = selectedMonth.naoConformes
+  const pendentes = Math.max(totalOps - conformes - naoConformes, 0)
+  
   return (
     <main className="min-h-screen bg-slate-950 text-slate-100">
       <div className="mx-auto max-w-7xl px-6 py-8">
         <header className="mb-8">
           <p className="text-sm uppercase tracking-[0.3em] text-cyan-400">
-            SGQ • PCP • Produção
+            QUALIDADE
           </p>
 
           <h1 className="mt-3 text-3xl font-bold tracking-tight md:text-4xl">
@@ -21,25 +30,25 @@ export function DashboardReact() {
         <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <KpiCardReact
           title="Total de OPs"
-          value="244"
+          value="{totalOps.toLocaleString("pt-BR")}"
           description="OPs que passaram pelo SGQ no período"
         />
       
         <KpiCardReact
           title="OPs Conformes"
-          value="192"
+          value="{conformes.toLocaleString("pt-BR")}"
           description="Ordens finalizadas sem não conformidade"
         />
       
         <KpiCardReact
           title="OPs com NC"
-          value="49"
+          value="{naoConformes.toLocaleString("pt-BR")}"
           description="Ordens finalizadas com não conformidade"
         />
       
         <KpiCardReact
           title="OPs Pendentes"
-          value="3"
+          value="{pendentes.toLocaleString("pt-BR")}"
           description="OPs que passaram pelo SGQ, mas ainda não foram fechadas"
         />
     </section>
