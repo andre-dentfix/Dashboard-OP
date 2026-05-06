@@ -1,5 +1,13 @@
-import { DashboardReact } from "@/components/dashboard/DashboardReact"
-
 export default function DashboardReactPage() {
-  return <DashboardReact />
+  return (
+    <iframe
+      src="/dashboard.html"
+      title="Dashboard de OPs e Não Conformidades"
+      style={{
+        width: "100%",
+        height: "100vh",
+        border: "0",
+      }}
+    />
+  )
 }
