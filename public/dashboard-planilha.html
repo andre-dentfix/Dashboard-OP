@@ -698,24 +698,60 @@ function isConforme(value){
 
 function normalizeSectorName(value){
   const original = String(value || "").trim();
-  const t = normalizeText(original);
+  let t = normalizeText(original)
+    .replace(/[.()]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
 
-  if(!t || t === "-" || t === "n" || t === "na" || t === "n/a" || t === "nao consta" || t === "nao informado" || t === "nao informr" || t === "a") return "";
-  if(t.includes("pcp")) return "PCP";
-  if(t === "c.q" || t === "cq" || t.includes("controle de qualidade")) return "CQ";
-  if(t.includes("rotul")) return "Rotulagem";
-  if(t.includes("produ")) return "Produção";
-  if(t.includes("almox")) return "Almoxarifado";
-  if(t.includes("projeto")) return "Projeto";
-  if(t.includes("estoque")) return "Estoque";
-  if(t.includes("engenharia")) return "Engenharia";
-  if(t.includes("grav")) return "Gravação";
-  if(t.includes("labor")) return "Laboratório";
-  if(t.includes("usin")) return "Usinagem";
-  if(t.includes("pre lavagem") || t.includes("pre-lavagem")) return "Pré-Lavagem";
-  if(t.includes("setup")) return "Setup";
+  // Remove valores que não são setores reais.
+  const invalidos = [
+    "", "-", "--", "n", "na", "n a", "nao", "n/a", "n.a", "a",
+    "nao consta", "nao const", "nao informado", "nao informr", "nao se aplica",
+    "sem setor", "sem informacao", "sem informação", "nenhum", "outros"
+  ];
 
-  return original;
+  if(invalidos.includes(t)) return "";
+
+  // Mantém somente os setores oficiais usados no dashboard original.
+  // Também corrige erros comuns de digitação da planilha.
+  if(/pcp/.test(t)) return "PCP";
+  if(t === "cq" || t === "c q" || t.includes("controle de qualidade")) return "CQ";
+
+  if(
+    t.includes("rotul") ||
+    t.includes("rotuag") ||
+    t.includes("routag") ||
+    t.includes("rotuagem") ||
+    t.includes("rotualgem")
+  ) return "Rotulagem";
+
+  if(
+    t.includes("produc") ||
+    t.includes("produç") ||
+    t.includes("peoduc") ||
+    t.includes("peoduç") ||
+    t === "prod" ||
+    t.includes("producao") ||
+    t.includes("peoducao")
+  ) return "Produção";
+
+  if(
+    t.includes("almox") ||
+    t.includes("almix") ||
+    t.includes("amox") ||
+    t.includes("almoxarifado") ||
+    t.includes("almixarifado")
+  ) return "Almoxarifado";
+
+  if(t.includes("projeto") || t.includes("proj")) return "Projeto";
+  if(t.includes("estoque") || t.includes("estq")) return "Estoque";
+  if(t.includes("engenharia") || t.includes("eng")) return "Engenharia";
+  if(t.includes("gravacao") || t.includes("grava") || t.includes("grv")) return "Gravação";
+  if(t.includes("laboratorio") || t.includes("labor") || t.includes("lab")) return "Laboratório";
+  if(t.includes("usinagem") || t.includes("usina") || t.includes("usin")) return "Usinagem";
+
+  // Qualquer setor fora da lista oficial é ignorado para não poluir os gráficos.
+  return "";
 }
 
 function splitSectors(value){
@@ -728,16 +764,23 @@ function splitSectors(value){
 
 function reasonCategory(value){
   const t = normalizeText(value);
-  if(!t || t === "-" || t === "n/a") return "Sem preenchimento";
-  if(t.includes("qtd") || t.includes("quantidade") || t.includes("qtde") || t.includes("confere")) return "Qtd. não confere";
-  if(t.includes("desenho")) return "Sem desenho";
-  if(t.includes("cota") || t.includes("dimens")) return "Cota divergente";
-  if(t.includes("assinatura") || t.includes("assinar")) return "Sem assinatura";
-  if(t.includes("tolerancia") || t.includes("tolerância") || t.includes("cnc")) return "Tolerância/CNC";
+
+  if(!t || t === "-" || t === "n/a" || t === "na" || t === "n") return "Sem preenchimento";
+
+  if(t.includes("qtd") || t.includes("quantidade") || t.includes("qtde") || t.includes("confere") || t.includes("divergencia de quantidade")) {
+    return "Qtd. não confere";
+  }
+
+  if(t.includes("sem desenho") || t.includes("desenho") || t.includes("desenhos")) return "Sem desenho";
+  if(t.includes("cota") || t.includes("dimens") || t.includes("medida") || t.includes("dimensional")) return "Cota divergente";
+  if(t.includes("assinatura") || t.includes("assinar") || t.includes("assinado")) return "Sem assinatura";
+  if(t.includes("tolerancia") || t.includes("tolerância") || t.includes("cnc") || t.includes("programa")) return "Tolerância/CNC";
   if(t.includes("visto")) return "Sem visto";
-  if(t.includes("codigo de barras") || t.includes("código de barras") || t.includes("cod. barras") || t.includes("cód. barras")) return "Sem cód. barras";
-  if(t.includes("certificado")) return "Sem certificado";
-  return "Outros";
+  if(t.includes("codigo de barras") || t.includes("código de barras") || t.includes("cod barras") || t.includes("cod. barras") || t.includes("cód barras") || t.includes("cód. barras")) return "Sem cód. barras";
+  if(t.includes("certificado") || t.includes("certif")) return "Sem certificado";
+
+  // Antes o dashboard não exibia "Outros". Então motivos não classificados são ignorados.
+  return "";
 }
 
 function buildDataFromSheetRows(rows){
@@ -764,7 +807,11 @@ function buildDataFromSheetRows(rows){
 
     if(isNaoConforme(situacao)){
       monthly[m].NC += 1;
-      motivos[reasonCategory(observacoes)] = (motivos[reasonCategory(observacoes)] || 0) + 1;
+
+      const motivo = reasonCategory(observacoes);
+      if(motivo){
+        motivos[motivo] = (motivos[motivo] || 0) + 1;
+      }
 
       const sectorList = splitSectors(setores);
       if(!setorMensal[m]) setorMensal[m] = {};
