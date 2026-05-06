@@ -552,6 +552,307 @@ let MOTIVOS = {
   "Sem visto":140,"Sem cód. barras":21,"Sem certificado":2
 };
 
+
+// ── Integração Google Planilhas ──
+function normalizeText(value){
+  return String(value || "")
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+}
+
+function parseCSVLine(line, delimiter){
+  const result = [];
+  let current = "";
+  let insideQuotes = false;
+
+  for(let i=0; i<line.length; i++){
+    const char = line[i];
+    const next = line[i+1];
+
+    if(char === '"' && insideQuotes && next === '"'){
+      current += '"';
+      i++;
+    } else if(char === '"'){
+      insideQuotes = !insideQuotes;
+    } else if(char === delimiter && !insideQuotes){
+      result.push(current.trim());
+      current = "";
+    } else {
+      current += char;
+    }
+  }
+
+  result.push(current.trim());
+  return result;
+}
+
+function detectDelimiter(firstLine){
+  const candidates = [",", ";", "\t"];
+  let best = ",";
+  let bestCount = 0;
+
+  candidates.forEach(delimiter=>{
+    const count = parseCSVLine(firstLine, delimiter).length;
+    if(count > bestCount){
+      bestCount = count;
+      best = delimiter;
+    }
+  });
+
+  return best;
+}
+
+function parseCSV(csvText){
+  const lines = csvText
+    .split(/\r?\n/)
+    .map(line=>line.trim())
+    .filter(Boolean);
+
+  if(lines.length < 2) return [];
+
+  const delimiter = detectDelimiter(lines[0]);
+  const headers = parseCSVLine(lines[0], delimiter).map(normalizeText);
+
+  return lines.slice(1).map(line=>{
+    const values = parseCSVLine(line, delimiter);
+    const row = {};
+
+    headers.forEach((header, index)=>{
+      row[header] = values[index] || "";
+    });
+
+    return row;
+  });
+}
+
+function getCell(row, names){
+  for(const name of names){
+    const key = normalizeText(name);
+    if(row[key] !== undefined) return row[key];
+  }
+  return "";
+}
+
+function monthKeyFromDate(value){
+  const text = String(value || "").trim();
+  if(!text) return "";
+
+  // Caso o Google retorne número serial de planilha, exemplo 45300
+  if(/^\d+(\.\d+)?$/.test(text)){
+    const serial = Number(text);
+    if(serial > 30000 && serial < 60000){
+      const date = new Date(Math.round((serial - 25569) * 86400 * 1000));
+      const y = date.getUTCFullYear();
+      const m = String(date.getUTCMonth()+1).padStart(2,"0");
+      if(y >= 2022 && y <= 2030) return `${y}-${m}`;
+    }
+  }
+
+  const dateOnly = text.split(" ")[0];
+
+  const br = dateOnly.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/);
+  if(br){
+    let y = br[3];
+    if(y.length === 2) y = `20${y}`;
+    const m = br[2].padStart(2,"0");
+    const year = Number(y);
+    if(year >= 2022 && year <= 2030) return `${y}-${m}`;
+  }
+
+  const brDash = dateOnly.match(/^(\d{1,2})-(\d{1,2})-(\d{2,4})$/);
+  if(brDash){
+    let y = brDash[3];
+    if(y.length === 2) y = `20${y}`;
+    const m = brDash[2].padStart(2,"0");
+    const year = Number(y);
+    if(year >= 2022 && year <= 2030) return `${y}-${m}`;
+  }
+
+  const iso = dateOnly.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+  if(iso){
+    const year = Number(iso[1]);
+    const m = iso[2].padStart(2,"0");
+    if(year >= 2022 && year <= 2030) return `${iso[1]}-${m}`;
+  }
+
+  return "";
+}
+
+function isFinalizada(value){
+  const t = normalizeText(value);
+  return t === "x" || t === "sim" || t === "s" || t === "finalizada" || t === "finalizado";
+}
+
+function isNaoConforme(value){
+  const t = normalizeText(value);
+  return t === "nc" || t.includes("nao conforme") || t.includes("nao-conforme") || t.includes("nao conformidade") || t.includes("nao-conformidade");
+}
+
+function isConforme(value){
+  const t = normalizeText(value);
+  if(isNaoConforme(value)) return false;
+  return t === "c" || t === "conforme" || t.includes("conforme");
+}
+
+function normalizeSectorName(value){
+  const original = String(value || "").trim();
+  const t = normalizeText(original);
+
+  if(!t || t === "-" || t === "n" || t === "na" || t === "n/a" || t === "nao consta" || t === "nao informado" || t === "nao informr" || t === "a") return "";
+  if(t.includes("pcp")) return "PCP";
+  if(t === "c.q" || t === "cq" || t.includes("controle de qualidade")) return "CQ";
+  if(t.includes("rotul")) return "Rotulagem";
+  if(t.includes("produ")) return "Produção";
+  if(t.includes("almox")) return "Almoxarifado";
+  if(t.includes("projeto")) return "Projeto";
+  if(t.includes("estoque")) return "Estoque";
+  if(t.includes("engenharia")) return "Engenharia";
+  if(t.includes("grav")) return "Gravação";
+  if(t.includes("labor")) return "Laboratório";
+  if(t.includes("usin")) return "Usinagem";
+  if(t.includes("pre lavagem") || t.includes("pre-lavagem")) return "Pré-Lavagem";
+  if(t.includes("setup")) return "Setup";
+
+  return original;
+}
+
+function splitSectors(value){
+  return String(value || "")
+    .split(/[,;\/|]+|\s+e\s+/i)
+    .map(v=>normalizeSectorName(v))
+    .filter(Boolean)
+    .filter((v,i,a)=>a.indexOf(v)===i);
+}
+
+function reasonCategory(value){
+  const t = normalizeText(value);
+  if(!t || t === "-" || t === "n/a") return "Sem preenchimento";
+  if(t.includes("qtd") || t.includes("quantidade") || t.includes("qtde") || t.includes("confere")) return "Qtd. não confere";
+  if(t.includes("desenho")) return "Sem desenho";
+  if(t.includes("cota") || t.includes("dimens")) return "Cota divergente";
+  if(t.includes("assinatura") || t.includes("assinar")) return "Sem assinatura";
+  if(t.includes("tolerancia") || t.includes("tolerância") || t.includes("cnc")) return "Tolerância/CNC";
+  if(t.includes("visto")) return "Sem visto";
+  if(t.includes("codigo de barras") || t.includes("código de barras") || t.includes("cod. barras") || t.includes("cód. barras")) return "Sem cód. barras";
+  if(t.includes("certificado")) return "Sem certificado";
+  return "Outros";
+}
+
+function buildDataFromSheetRows(rows){
+  const monthly = {};
+  const setorMensal = {};
+  const motivos = {};
+
+  rows.forEach(row=>{
+    const dataFechamento = getCell(row,["Data de fechamento"]);
+    const numeroOP = getCell(row,["Número da OP","Numero da OP"]);
+    const situacao = getCell(row,["Situação do fechamento","Situacao do fechamento"]);
+    const observacoes = getCell(row,["Observações encontradas","Observacoes encontradas"]);
+    const setores = getCell(row,["Setor (es)","Setor(es)","Setores"]);
+    const finalizadas = getCell(row,["Finalizadas","Finalizada"]);
+    const m = monthKeyFromDate(dataFechamento);
+
+    // Ignora linhas vazias, títulos repetidos e datas fora do período real.
+    if(!m || !numeroOP) return;
+
+    if(!monthly[m]) monthly[m] = {m,T:0,C:0,NC:0};
+    monthly[m].T += 1;
+
+    if(!isFinalizada(finalizadas)) return;
+
+    if(isNaoConforme(situacao)){
+      monthly[m].NC += 1;
+      motivos[reasonCategory(observacoes)] = (motivos[reasonCategory(observacoes)] || 0) + 1;
+
+      const sectorList = splitSectors(setores);
+      if(!setorMensal[m]) setorMensal[m] = {};
+      sectorList.forEach(setor=>{
+        setorMensal[m][setor] = (setorMensal[m][setor] || 0) + 1;
+      });
+    } else if(isConforme(situacao)){
+      monthly[m].C += 1;
+    }
+  });
+
+  const raw = Object.values(monthly).sort((a,b)=>a.m.localeCompare(b.m));
+  if(!raw.length) return null;
+
+  const annualMap = {};
+  raw.forEach(d=>{
+    const ano = Number(d.m.slice(0,4));
+    if(!annualMap[ano]) annualMap[ano] = {ano,T:0,NC:0,C:0};
+    annualMap[ano].T += d.T;
+    annualMap[ano].NC += d.NC;
+    annualMap[ano].C += d.C;
+  });
+  const annual = Object.values(annualMap).sort((a,b)=>a.ano-b.ano);
+
+  const setorNC = {};
+  const setorAnual = {};
+  Object.entries(setorMensal).forEach(([mes, setores])=>{
+    const ano = Number(mes.slice(0,4));
+    Object.entries(setores).forEach(([setor, qtd])=>{
+      setorNC[setor] = (setorNC[setor] || 0) + qtd;
+      if(!setorAnual[setor]) setorAnual[setor] = {};
+      setorAnual[setor][ano] = (setorAnual[setor][ano] || 0) + qtd;
+    });
+  });
+
+  const motivosOrdenados = Object.fromEntries(Object.entries(motivos).sort((a,b)=>b[1]-a[1]));
+
+  return {
+    RAW: raw,
+    ANNUAL: annual,
+    SETOR_NC: Object.fromEntries(Object.entries(setorNC).sort((a,b)=>b[1]-a[1])),
+    SETOR_ANUAL: setorAnual,
+    SETOR_MENSAL: setorMensal,
+    MOTIVOS: motivosOrdenados
+  };
+}
+
+function applySheetData(data){
+  RAW = data.RAW;
+  ANNUAL = data.ANNUAL;
+  SETOR_NC = data.SETOR_NC;
+  SETOR_ANUAL = data.SETOR_ANUAL;
+  SETOR_MENSAL = data.SETOR_MENSAL;
+  MOTIVOS = data.MOTIVOS;
+
+  activeYear = "all";
+  activeMonth = "";
+  document.querySelectorAll(".filter-btn").forEach(btn=>{
+    btn.classList.toggle("active", btn.dataset.year === "all");
+  });
+
+  populateMonthSelect("all");
+  renderAll();
+}
+
+async function loadSheetData(){
+  try{
+    const response = await fetch(GOOGLE_SHEETS_CSV_URL + "&cacheBust=" + Date.now(), {cache:"no-store"});
+    if(!response.ok) throw new Error("HTTP " + response.status);
+
+    const csvText = await response.text();
+    const rows = parseCSV(csvText);
+    const data = buildDataFromSheetRows(rows);
+
+    if(!data){
+      console.warn("Planilha carregada, mas sem dados válidos. Mantendo dados internos.");
+      return;
+    }
+
+    applySheetData(data);
+
+    document.getElementById("last-updated").innerHTML =
+      "Dados da planilha: <strong>"+new Date().toLocaleDateString("pt-BR")+"</strong>";
+  } catch(error){
+    console.error("Erro ao carregar planilha. Mantendo dados internos.", error);
+  }
+}
+
 // ── Estado ──
 let activeYear  = "all";
 let activeMonth = "";   // "2025-04" ou vazio
@@ -633,7 +934,8 @@ function kpis(){
     const idx = RAW.findIndex(d=>d.m===activeMonth);
     if(idx>0){ prevD=RAW[idx-1]; prevLabel=fmtM(prevD.m); }
   }
-  const prevTaxa = prevD&&prevD.T?(prevD.NC/prevD.T*100).toFixed(1):null;
+  const prevFechadas = prevD ? (prevD.C + prevD.NC) : 0;
+  const prevTaxa = prevD&&prevFechadas?(prevD.NC/prevFechadas*100).toFixed(1):null;
 
   // Setor top
   let sMap;
@@ -700,7 +1002,7 @@ function destroyAll(){ Object.values(charts).forEach(c=>c?.destroy()); charts={}
 function renderGeneralCharts(){
   const monthly = filtByYear(activeYear);
   const labels  = monthly.map(d=>fmtM(d.m));
-  const rateArr = monthly.map(d=>(d.C+d.NC)?+(d.NC/(d.C+d.NC)*100).toFixed(1):0);
+  const rateArr = monthly.map(d=>{ const f=d.C+d.NC; return f?+(d.NC/f*100).toFixed(1):0; });
 
   charts.trend = new Chart(document.getElementById("chartTrend"),{
     data:{
@@ -794,7 +1096,7 @@ function renderGeneralCharts(){
         legend:{position:"top",labels:{usePointStyle:true,padding:16}},
         tooltip:{callbacks:{afterBody:items=>{
           const d=af[items[0].dataIndex];
-          return[`Taxa NC: ${((d.C+d.NC)?d.NC/(d.C+d.NC)*100:0).toFixed(1)}%`];
+          const f=d.C+d.NC; return[`Taxa NC: ${f?(d.NC/f*100).toFixed(1):"0.0"}%`];
         }}}
       },
       scales:{x:{stacked:true,grid:{color:CLR.grid}},y:{stacked:true,grid:{color:CLR.grid}}}
@@ -827,12 +1129,14 @@ function renderMonthCharts(){
   const smp = prev?(SETOR_MENSAL[prev.m]||{}):null;
 
   const d   = RAW.find(d=>d.m===activeMonth)||{T:0,NC:0,C:0};
-  const taxa= (d.C+d.NC)?(d.NC/(d.C+d.NC)*100).toFixed(1):"0.0";
+  const fechadasMes = d.C + d.NC;
+  const taxa= fechadasMes?(d.NC/fechadasMes*100).toFixed(1):"0.0";
 
   // Header do mês
   let prevCompare="";
   if(prev){
-    const pTaxa=((prev.C+prev.NC)?prev.NC/(prev.C+prev.NC)*100:0).toFixed(1);
+    const prevFechadas = prev.C + prev.NC;
+    const pTaxa=prevFechadas?(prev.NC/prevFechadas*100).toFixed(1):"0.0";
     const diff=(+taxa - +pTaxa).toFixed(1);
     const cls=+diff>0?"d-up":+diff<0?"d-dn":"d-neu";
     const sym=+diff>0?"▲":+diff<0?"▼":"—";
@@ -951,7 +1255,8 @@ function tblMonthly(){
     const col  = pctCol(+taxa);
     const idx  = allData.findIndex(x=>x.m===d.m);
     const prev = allData[idx+1];
-    const pRate= prev&&(prev.C+prev.NC)?(prev.NC/(prev.C+prev.NC)*100):null;
+    const prevFechadas = prev ? (prev.C + prev.NC) : 0;
+    const pRate= prev&&prevFechadas?(prev.NC/prevFechadas*100):null;
     let delta="";
     if(pRate!==null){
       const diff=(+taxa-pRate).toFixed(1);
@@ -1043,7 +1348,8 @@ function exportMonthlyCSV(){
   const rows = [
     ["Mês", "Total de OPs", "OPs Conformes", "OPs com NC", "Taxa NC %"],
     ...data.map(d => {
-      const taxa = (d.C + d.NC) ? (d.NC / (d.C + d.NC) * 100).toFixed(1).replace(".", ",") : "0,0";
+      const fechadas = d.C + d.NC;
+      const taxa = fechadas ? (d.NC / fechadas * 100).toFixed(1).replace(".", ",") : "0,0";
 
       return [
         fmtM(d.m),
@@ -1079,319 +1385,6 @@ function exportMonthlyCSV(){
   URL.revokeObjectURL(url);
 }
   
-
-// ── Integração Google Planilhas ──
-function normalizeSheetText(value){
-  return String(value || "")
-    .trim()
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "");
-}
-
-function parseCSVLineSheet(line, delimiter){
-  const result = [];
-  let current = "";
-  let insideQuotes = false;
-
-  for(let i = 0; i < line.length; i++){
-    const char = line[i];
-    const nextChar = line[i + 1];
-
-    if(char === '"' && insideQuotes && nextChar === '"'){
-      current += '"';
-      i++;
-    } else if(char === '"'){
-      insideQuotes = !insideQuotes;
-    } else if(char === delimiter && !insideQuotes){
-      result.push(current.trim());
-      current = "";
-    } else {
-      current += char;
-    }
-  }
-
-  result.push(current.trim());
-  return result;
-}
-
-function detectCSVDelimiter(firstLine){
-  const delimiters = [",", ";", "\t"];
-  let best = ",";
-  let bestCount = 0;
-
-  delimiters.forEach(delimiter => {
-    const count = parseCSVLineSheet(firstLine, delimiter).length;
-    if(count > bestCount){
-      best = delimiter;
-      bestCount = count;
-    }
-  });
-
-  return best;
-}
-
-function parseGoogleCSV(csvText){
-  const lines = csvText
-    .split(/\r?\n/)
-    .map(line => line.trim())
-    .filter(Boolean);
-
-  if(lines.length < 2) return [];
-
-  const delimiter = detectCSVDelimiter(lines[0]);
-  const headers = parseCSVLineSheet(lines[0], delimiter).map(normalizeSheetText);
-
-  return lines.slice(1).map(line => {
-    const values = parseCSVLineSheet(line, delimiter);
-    const row = {};
-
-    headers.forEach((header, index) => {
-      row[header] = values[index] || "";
-    });
-
-    return row;
-  });
-}
-
-function getSheetCell(row, possibleHeaders){
-  for(const header of possibleHeaders){
-    const key = normalizeSheetText(header);
-    if(row[key] !== undefined) return row[key];
-  }
-  return "";
-}
-
-function monthKeyFromSheetDate(value){
-  const text = String(value || "").trim();
-  if(!text) return "";
-
-  const dateOnly = text.split(" ")[0];
-
-  const brMatch = dateOnly.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/);
-  if(brMatch){
-    let year = brMatch[3];
-    if(year.length === 2) year = `20${year}`;
-    return `${year}-${brMatch[2].padStart(2,"0")}`;
-  }
-
-  const brDashMatch = dateOnly.match(/^(\d{1,2})-(\d{1,2})-(\d{2,4})$/);
-  if(brDashMatch){
-    let year = brDashMatch[3];
-    if(year.length === 2) year = `20${year}`;
-    return `${year}-${brDashMatch[2].padStart(2,"0")}`;
-  }
-
-  const isoMatch = dateOnly.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
-  if(isoMatch) return `${isoMatch[1]}-${isoMatch[2].padStart(2,"0")}`;
-
-  const parsed = new Date(text);
-  if(!Number.isNaN(parsed.getTime())){
-    return `${parsed.getFullYear()}-${String(parsed.getMonth()+1).padStart(2,"0")}`;
-  }
-
-  return "";
-}
-
-function sheetIsFinalizada(value){
-  const text = normalizeSheetText(value);
-  return text === "x" || text === "sim" || text === "s" || text === "finalizada" || text === "finalizado";
-}
-
-function sheetIsNaoConforme(value){
-  const text = normalizeSheetText(value);
-  return text === "nc" ||
-    text.includes("nao conforme") ||
-    text.includes("nao-conforme") ||
-    text.includes("nao conformidade") ||
-    text.includes("nao-conformidade");
-}
-
-function sheetIsConforme(value){
-  const text = normalizeSheetText(value);
-  if(sheetIsNaoConforme(value)) return false;
-  return text === "c" || text === "conforme" || text.includes("conforme");
-}
-
-function normalizeSheetSector(value){
-  const original = String(value || "").trim();
-  const text = normalizeSheetText(original);
-
-  if(text.includes("pcp")) return "PCP";
-  if(text.includes("cq") || text.includes("controle de qualidade")) return "CQ";
-  if(text.includes("rotul")) return "Rotulagem";
-  if(text.includes("produ")) return "Produção";
-  if(text.includes("almox")) return "Almoxarifado";
-  if(text.includes("projeto")) return "Projeto";
-  if(text.includes("estoque")) return "Estoque";
-  if(text.includes("engenharia")) return "Engenharia";
-  if(text.includes("grav")) return "Gravação";
-  if(text.includes("labor")) return "Laboratório";
-  if(text.includes("usin")) return "Usinagem";
-
-  return original || "Não informado";
-}
-
-function splitSheetSectors(value){
-  const text = String(value || "").trim();
-  if(!text) return [];
-
-  return text
-    .split(/[,;/|]+|\s+e\s+/i)
-    .map(item => item.trim())
-    .filter(Boolean)
-    .map(normalizeSheetSector)
-    .filter((item, index, array) => array.indexOf(item) === index);
-}
-
-function classifySheetReason(value){
-  const original = String(value || "").trim();
-  const text = normalizeSheetText(original);
-
-  if(!text) return "Sem preenchimento";
-  if(text.includes("quant") || text.includes("qtd") || text.includes("quantidade")) return "Qtd. não confere";
-  if(text.includes("desenho")) return "Sem desenho";
-  if(text.includes("cota") || text.includes("medida") || text.includes("dimens")) return "Cota divergente";
-  if(text.includes("assinatura") || text.includes("assinado")) return "Sem assinatura";
-  if(text.includes("toler") || text.includes("cnc")) return "Tolerância/CNC";
-  if(text.includes("visto")) return "Sem visto";
-  if(text.includes("codigo de barras") || text.includes("código de barras") || text.includes("cod barras")) return "Sem cód. barras";
-  if(text.includes("certificado")) return "Sem certificado";
-
-  return original.length > 70 ? original.slice(0, 70) + "..." : original;
-}
-
-function buildDashboardDataFromSheetRows(sheetRows){
-  const monthlyMap = {};
-  const setorMensalMap = {};
-  const motivosMap = {};
-
-  sheetRows.forEach(row => {
-    const dataFechamento = getSheetCell(row, ["Data de fechamento"]);
-    const situacao = getSheetCell(row, ["Situação do fechamento", "Situacao do fechamento"]);
-    const observacoes = getSheetCell(row, ["Observações encontradas", "Observacoes encontradas"]);
-    const setores = getSheetCell(row, ["Setor (es)", "Setor(es)", "Setores"]);
-    const finalizadas = getSheetCell(row, ["Finalizadas", "Finalizada"]);
-    const monthKey = monthKeyFromSheetDate(dataFechamento);
-
-    if(!monthKey) return;
-
-    if(!monthlyMap[monthKey]){
-      monthlyMap[monthKey] = {m:monthKey,T:0,C:0,NC:0};
-    }
-
-    monthlyMap[monthKey].T += 1;
-
-    if(sheetIsFinalizada(finalizadas)){
-      if(sheetIsNaoConforme(situacao)){
-        monthlyMap[monthKey].NC += 1;
-
-        if(!setorMensalMap[monthKey]) setorMensalMap[monthKey] = {};
-        const sectorList = splitSheetSectors(setores);
-        const finalSectors = sectorList.length ? sectorList : ["Não informado"];
-
-        finalSectors.forEach(sector => {
-          setorMensalMap[monthKey][sector] = (setorMensalMap[monthKey][sector] || 0) + 1;
-        });
-
-        const reason = classifySheetReason(observacoes);
-        motivosMap[reason] = (motivosMap[reason] || 0) + 1;
-      } else if(sheetIsConforme(situacao)){
-        monthlyMap[monthKey].C += 1;
-      }
-    }
-  });
-
-  const raw = Object.values(monthlyMap).sort((a,b)=>a.m.localeCompare(b.m));
-
-  const annualMap = {};
-  raw.forEach(item => {
-    const year = +item.m.slice(0,4);
-    if(!annualMap[year]) annualMap[year] = {ano:year,T:0,NC:0,C:0};
-    annualMap[year].T += item.T;
-    annualMap[year].NC += item.NC;
-    annualMap[year].C += item.C;
-  });
-
-  const setorNcMap = {};
-  const setorAnualMap = {};
-
-  Object.entries(setorMensalMap).forEach(([monthKey, setores]) => {
-    const year = +monthKey.slice(0,4);
-    Object.entries(setores).forEach(([sector, count]) => {
-      setorNcMap[sector] = (setorNcMap[sector] || 0) + count;
-      if(!setorAnualMap[sector]) setorAnualMap[sector] = {};
-      setorAnualMap[sector][year] = (setorAnualMap[sector][year] || 0) + count;
-    });
-  });
-
-  return {
-    raw,
-    annual: Object.values(annualMap).sort((a,b)=>a.ano-b.ano),
-    setorNC: Object.fromEntries(Object.entries(setorNcMap).sort((a,b)=>b[1]-a[1])),
-    setorAnual: setorAnualMap,
-    setorMensal: setorMensalMap,
-    motivos: Object.fromEntries(Object.entries(motivosMap).sort((a,b)=>b[1]-a[1]))
-  };
-}
-
-function updateYearButtonsFromRaw(){
-  const yearGroup = document.querySelector('.filter-group');
-  if(!yearGroup) return;
-
-  const years = [...new Set(RAW.map(d => d.m.slice(0,4)))].sort();
-  yearGroup.innerHTML = `
-    <span class="filter-label">Ano</span>
-    <button class="filter-btn ${activeYear==='all'?'active':''}" data-year="all">Todos</button>
-    ${years.map(year => `<button class="filter-btn ${activeYear===year?'active':''}" data-year="${year}">${year}</button>`).join('')}
-  `;
-
-  bindYearButtons();
-}
-
-async function loadGoogleSheetsData(){
-  try{
-    const response = await fetch(GOOGLE_SHEETS_CSV_URL, {cache:'no-store'});
-    if(!response.ok) throw new Error(`Erro HTTP ${response.status}`);
-
-    const csvText = await response.text();
-    const sheetRows = parseGoogleCSV(csvText);
-    const dashboardData = buildDashboardDataFromSheetRows(sheetRows);
-
-    if(!dashboardData.raw.length){
-      console.warn('Planilha carregada, mas nenhum mês válido foi identificado. Mantendo dados internos.');
-      return;
-    }
-
-    RAW = dashboardData.raw;
-    ANNUAL = dashboardData.annual;
-    SETOR_NC = dashboardData.setorNC;
-    SETOR_ANUAL = dashboardData.setorAnual;
-    SETOR_MENSAL = dashboardData.setorMensal;
-    MOTIVOS = dashboardData.motivos;
-
-    if(activeYear !== 'all' && !RAW.some(d => d.m.startsWith(activeYear))){
-      activeYear = 'all';
-    }
-    if(activeMonth && !RAW.some(d => d.m === activeMonth)){
-      activeMonth = '';
-    }
-
-    monthlyExpanded = false;
-    setorExpanded = false;
-    updateYearButtonsFromRaw();
-    populateMonthSelect(activeYear);
-    renderAll();
-
-    document.getElementById('last-updated').innerHTML =
-      'Dados da planilha: <strong>' + new Date().toLocaleDateString('pt-BR') + '</strong>';
-  } catch(error){
-    console.error('Erro ao carregar Google Planilhas:', error);
-    document.getElementById('last-updated').innerHTML +=
-      '<br><span style="color:var(--warn)">Usando dados internos</span>';
-  }
-}
-
 // ── Render principal ──
 function renderAll(){
   destroyAll();
@@ -1414,23 +1407,17 @@ function renderAll(){
 }
 
 // ── Eventos ──
-function bindYearButtons(){
-  document.querySelectorAll(".filter-btn").forEach(btn=>{
-    btn.addEventListener("click",()=>{
-      document.querySelectorAll(".filter-btn").forEach(b=>b.classList.remove("active"));
-      btn.classList.add("active");
-      activeYear = btn.dataset.year;
-      activeMonth = "";
-      monthlyExpanded = false;
-      setorExpanded = false;
-      document.getElementById("month-select").value="";
-      populateMonthSelect(activeYear);
-      renderAll();
-    });
+document.querySelectorAll(".filter-btn").forEach(btn=>{
+  btn.addEventListener("click",()=>{
+    document.querySelectorAll(".filter-btn").forEach(b=>b.classList.remove("active"));
+    btn.classList.add("active");
+    activeYear = btn.dataset.year;
+    activeMonth = "";
+    document.getElementById("month-select").value="";
+    populateMonthSelect(activeYear);
+    renderAll();
   });
-}
-
-bindYearButtons();
+});
 
 document.getElementById("month-select").addEventListener("change",function(){
   activeMonth = this.value;
@@ -1457,6 +1444,13 @@ document.getElementById("expand-setor-btn").addEventListener("click",()=>{
   tblSetor();
 });
 
+// Reset expand state when changing filters
+document.querySelectorAll(".filter-btn").forEach(btn=>{
+  btn.addEventListener("click",()=>{
+    monthlyExpanded = false;
+    setorExpanded = false;
+  });
+});
 
 // ── Init ──
 document.getElementById("last-updated").innerHTML =
@@ -1464,7 +1458,7 @@ document.getElementById("last-updated").innerHTML =
 
 populateMonthSelect("all");
 renderAll();
-loadGoogleSheetsData();
+loadSheetData();
 </script>
 </body>
 </html>
