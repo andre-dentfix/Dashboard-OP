@@ -620,7 +620,8 @@ function kpis(){
   const totOps = data.reduce((s,d)=>s+d.T,0);
   const totNC  = data.reduce((s,d)=>s+d.NC,0);
   const totC   = data.reduce((s,d)=>s+d.C,0);
-  const taxa   = totOps?(totNC/totOps*100).toFixed(1):"0.0";
+  const totFechadas = totC + totNC;
+  const taxa = totFechadas ? (totNC / totFechadas * 100).toFixed(1) : "0.0";
   const totPendentes = Math.max(totOps - totC - totNC, 0);
 
   // Comparativo
@@ -675,7 +676,7 @@ function kpis(){
     <div class="kpi-card" style="--kpi-color:${pctCol(+taxa)}">
       <div class="kpi-label">Taxa de NC</div>
       <div class="kpi-value">${taxa}%</div>
-      <div class="kpi-sub">NCs setoriais / total de OPs</div>
+      <div class="kpi-sub">Sobre OPs fechadas no período</div>
       ${deltaHtml}
       <span class="kpi-badge ${+taxa<=20?"bg":+taxa<=30?"bw":"bb"}">
         ${+taxa<=20?"▼ Controlado":+taxa<=30?"◆ Atenção":"▲ Crítico"}
