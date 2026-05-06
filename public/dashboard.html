@@ -178,6 +178,24 @@
   .bar-wrap { display: flex; align-items: center; gap: 8px; }
   .bar-bg   { flex: 1; height: 6px; background: var(--border); border-radius: 3px; overflow: hidden; min-width: 60px; }
   .bar-fill { height: 100%; border-radius: 3px; transition: width .4s; }
+    .bar-fill.normal {
+  background: var(--accent);
+    }
+        .bar-fill.warning {
+      background: var(--warn);
+    }
+        .bar-fill.critical {
+      background: var(--danger);
+    }
+        .taxa-label.normal {
+      color: var(--accent);
+    }
+        .taxa-label.warning {
+      color: var(--warn);
+    }
+        .taxa-label.critical {
+      color: var(--danger);
+    }
   .bar-lbl  { font-size: 12px; font-weight: 600; min-width: 40px; text-align: right; }
   .delta    { font-size: 11px; padding: 2px 7px; border-radius: 8px; font-weight: 600; }
 .d-up  { background: rgba(230,57,70,.15);   color: var(--accent); }
@@ -919,6 +937,7 @@ function tblMonthly(){
   const allData = RAW.slice().reverse(); // para delta
   document.getElementById("tbody-monthly").innerHTML = displayData.map((d)=>{
     const taxa = d.T?(d.NC/d.T*100).toFixed(1):"0.0";
+    const taxaClass = taxa >= 22 ? "critical" : taxa >= 13 ? "warning" : "normal";
     const col  = pctCol(+taxa);
     const idx  = allData.findIndex(x=>x.m===d.m);
     const prev = allData[idx+1];
@@ -936,8 +955,8 @@ function tblMonthly(){
       <td><span class="chip-c">${d.C.toLocaleString("pt-BR")}</span></td>
       <td><span class="chip-nc">${d.NC.toLocaleString("pt-BR")}</span></td>
       <td><div class="bar-wrap">
-        <div class="bar-bg"><div class="bar-fill" style="width:${Math.min(+taxa,100)}%;background:${col}"></div></div>
-        <span class="bar-lbl" style="color:${col}">${taxa}%</span>
+        <div class="bar-bg"><div class="bar-fill ${taxaClass}" style="width:${Math.min(+taxa,100)}%"></div></div>
+        <span class="bar-lbl taxa-label ${taxaClass}">${taxa}%</span>
       </div></td>
       <td>${delta}</td>
     </tr>`;
