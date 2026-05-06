@@ -1224,8 +1224,11 @@ function monthKeyFromDate(value) {
 
   if (!text) return "";
 
-  // Formato brasileiro: dd/mm/aaaa
-  const brMatch = text.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/);
+  // Remove horário, se vier como "06/05/2026 00:00:00"
+  const dateOnly = text.split(" ")[0];
+
+  // Formato brasileiro: dd/mm/aaaa ou dd/mm/aa
+  const brMatch = dateOnly.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/);
 
   if (brMatch) {
     const month = brMatch[2].padStart(2, "0");
@@ -1238,8 +1241,22 @@ function monthKeyFromDate(value) {
     return `${year}-${month}`;
   }
 
+  // Formato brasileiro com hífen: dd-mm-aaaa
+  const brDashMatch = dateOnly.match(/^(\d{1,2})-(\d{1,2})-(\d{2,4})$/);
+
+  if (brDashMatch) {
+    const month = brDashMatch[2].padStart(2, "0");
+    let year = brDashMatch[3];
+
+    if (year.length === 2) {
+      year = `20${year}`;
+    }
+
+    return `${year}-${month}`;
+  }
+
   // Formato ISO: aaaa-mm-dd
-  const isoMatch = text.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+  const isoMatch = dateOnly.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
 
   if (isoMatch) {
     const year = isoMatch[1];
@@ -1334,16 +1351,16 @@ async function loadGoogleSheetData() {
       return;
     }
 
-    RAW = sheetRaw;
+    if (sheetRaw.length > 0) {
+      RAW = sheetRaw;
 
-    console.log("Dados mensais carregados da planilha:", RAW);
+      console.log("Dados mensais carregados da planilha:", RAW);
 
-    updateMonthUI();
-    renderAll();
-  } catch (error) {
-    console.error("Erro ao carregar planilha:", error);
-  }
-}
+      updateMonthUI();
+      renderAll();
+    } else {
+      console.warn("A planilha foi carregada, mas nenhum dado mensal foi identificado. Mantendo dados internos do dashboard.");
+    }
 
 loadGoogleSheetData();  
 renderAll();
