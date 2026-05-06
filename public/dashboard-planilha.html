@@ -833,37 +833,63 @@ function buildDataFromSheetRows(rows){
   const motivos = {};
   const opMap = {};
 
+  // Algumas planilhas exportadas do Google Sheets podem ter células vazias em linhas repetidas.
+  // Por isso, mantemos o último valor válido de Data, OP, Situação e Finalização.
+  let lastDataFechamento = "";
+  let lastNumeroOP = "";
+  let lastSituacao = "";
+  let lastFinalizadas = "";
+
   rows.forEach(row=>{
-    const dataFechamento = getCell(row,["Data de fechamento"]);
-    const numeroOP = getCell(row,["Número da OP","Numero da OP"]);
-    const situacao = getCell(row,["Situação do fechamento","Situacao do fechamento"]);
+    let dataFechamento = getCell(row,["Data de fechamento"]);
+    let numeroOP = getCell(row,["Número da OP","Numero da OP"]);
+    let situacao = getCell(row,["Situação do fechamento","Situacao do fechamento"]);
     const observacoes = getCell(row,["Observações encontradas","Observacoes encontradas"]);
     const setores = getCell(row,["Setor (es)","Setor(es)","Setores"]);
-    const finalizadas = getCell(row,["Finalizadas","Finalizada"]);
+    let finalizadas = getCell(row,["Finalizadas","Finalizada"]);
+
+    if(String(dataFechamento || "").trim()) lastDataFechamento = dataFechamento;
+    if(String(numeroOP || "").trim()) lastNumeroOP = numeroOP;
+    if(String(situacao || "").trim()) lastSituacao = situacao;
+    if(String(finalizadas || "").trim()) lastFinalizadas = finalizadas;
+
+    dataFechamento = String(dataFechamento || "").trim() ? dataFechamento : lastDataFechamento;
+    numeroOP = String(numeroOP || "").trim() ? numeroOP : lastNumeroOP;
+    situacao = String(situacao || "").trim() ? situacao : lastSituacao;
+    finalizadas = String(finalizadas || "").trim() ? finalizadas : lastFinalizadas;
+
     const m = monthKeyFromDate(dataFechamento);
     const op = String(numeroOP || "").trim();
 
     // Ignora linhas vazias, títulos repetidos e datas fora do período real.
     if(!m || !op) return;
 
-    // Conta OP por número de OP, evitando duplicar total/conformes/NC caso a planilha tenha mais de uma linha para a mesma OP.
+    // Conta OP única por mês + número da OP.
     const key = `${m}||${op}`;
 
     if(!opMap[key]){
       opMap[key] = {
         m,
         op,
-        isFinalizada:false,
-        isNC:false,
-        isC:false,
+        finalizada:false,
+        status:"", // "C" ou "NC"
         setores:[],
         motivos:[]
       };
     }
 
-    if(isFinalizada(finalizadas)) opMap[key].isFinalizada = true;
-    if(isNaoConforme(situacao)) opMap[key].isNC = true;
-    if(isConforme(situacao)) opMap[key].isC = true;
+    // A coluna Finalizadas serve somente para indicar se a OP foi fechada/pendente.
+    // A situação do fechamento define se a OP é C ou NC, independentemente do X.
+    if(isFinalizada(finalizadas)) {
+      opMap[key].finalizada = true;
+    }
+
+    // Se existir qualquer indicação de NC para a OP, NC tem prioridade sobre C.
+    if(isNaoConforme(situacao)) {
+      opMap[key].status = "NC";
+    } else if(isConforme(situacao) && opMap[key].status !== "NC") {
+      opMap[key].status = "C";
+    }
 
     splitSectors(setores).forEach(setor=>{
       if(!opMap[key].setores.includes(setor)) opMap[key].setores.push(setor);
@@ -874,13 +900,16 @@ function buildDataFromSheetRows(rows){
   });
 
   Object.values(opMap).forEach(op=>{
-    if(!monthly[op.m]) monthly[op.m] = {m:op.m,T:0,C:0,NC:0};
+    if(!monthly[op.m]) monthly[op.m] = {m:op.m,T:0,C:0,NC:0,P:0};
     monthly[op.m].T += 1;
 
-    if(!op.isFinalizada) return;
+    // A coluna Finalizadas indica apenas pendência/fechamento.
+    // A situação C/NC é contada independentemente do X.
+    if(!op.finalizada) {
+      monthly[op.m].P += 1;
+    }
 
-    // Prioridade para NC: se uma OP tiver qualquer indicação de NC, ela entra como NC, não como conforme.
-    if(op.isNC){
+    if(op.status === "NC"){
       monthly[op.m].NC += 1;
 
       op.motivos.forEach(motivo=>{
@@ -891,7 +920,7 @@ function buildDataFromSheetRows(rows){
       op.setores.forEach(setor=>{
         setorMensal[op.m][setor] = (setorMensal[op.m][setor] || 0) + 1;
       });
-    } else if(op.isC){
+    } else if(op.status === "C"){
       monthly[op.m].C += 1;
     }
   });
@@ -902,10 +931,11 @@ function buildDataFromSheetRows(rows){
   const annualMap = {};
   raw.forEach(d=>{
     const ano = Number(d.m.slice(0,4));
-    if(!annualMap[ano]) annualMap[ano] = {ano,T:0,NC:0,C:0};
+    if(!annualMap[ano]) annualMap[ano] = {ano,T:0,NC:0,C:0,P:0};
     annualMap[ano].T += d.T;
     annualMap[ano].NC += d.NC;
     annualMap[ano].C += d.C;
+    annualMap[ano].P += d.P || 0;
   });
   const annual = Object.values(annualMap).sort((a,b)=>a.ano-b.ano);
 
@@ -925,7 +955,7 @@ function buildDataFromSheetRows(rows){
   console.log("Diagnóstico planilha:", {
     linhasImportadas: rows.length,
     opsUnicas: Object.keys(opMap).length,
-    primeiroRegistro: Object.values(opMap)[0],
+    primeiraOP: Object.values(opMap)[0],
     RAW: raw
   });
 
@@ -938,7 +968,6 @@ function buildDataFromSheetRows(rows){
     MOTIVOS: motivosOrdenados
   };
 }
-
 function applySheetData(data){
   RAW = data.RAW;
   ANNUAL = data.ANNUAL;
@@ -1051,9 +1080,9 @@ function kpis(){
   const totOps = data.reduce((s,d)=>s+d.T,0);
   const totNC  = data.reduce((s,d)=>s+d.NC,0);
   const totC   = data.reduce((s,d)=>s+d.C,0);
-  const totFechadas = totC + totNC;
-  const taxa = totFechadas ? (totNC / totFechadas * 100).toFixed(1) : "0.0";
-  const totPendentes = Math.max(totOps - totC - totNC, 0);
+  const totPendentes = data.reduce((s,d)=>s+(d.P ?? Math.max(d.T - d.C - d.NC, 0)),0);
+  const totClassificadas = totC + totNC;
+  const taxa = totClassificadas ? (totNC / totClassificadas * 100).toFixed(1) : "0.0";
 
   // Comparativo
   let prevD=null, prevLabel="";
@@ -1061,8 +1090,8 @@ function kpis(){
     const idx = RAW.findIndex(d=>d.m===activeMonth);
     if(idx>0){ prevD=RAW[idx-1]; prevLabel=fmtM(prevD.m); }
   }
-  const prevFechadas = prevD ? (prevD.C + prevD.NC) : 0;
-  const prevTaxa = prevD&&prevFechadas?(prevD.NC/prevFechadas*100).toFixed(1):null;
+  const prevClassificadas = prevD ? (prevD.C + prevD.NC) : 0;
+  const prevTaxa = prevD&&prevClassificadas?(prevD.NC/prevClassificadas*100).toFixed(1):null;
 
   // Setor top
   let sMap;
@@ -1108,7 +1137,7 @@ function kpis(){
     <div class="kpi-card" style="--kpi-color:${pctCol(+taxa)}">
       <div class="kpi-label">Taxa de NC</div>
       <div class="kpi-value">${taxa}%</div>
-      <div class="kpi-sub">Sobre OPs fechadas no período</div>
+      <div class="kpi-sub">Sobre OPs classificadas como C ou NC</div>
       ${deltaHtml}
       <span class="kpi-badge ${+taxa<=20?"bg":+taxa<=30?"bw":"bb"}">
         ${+taxa<=20?"▼ Controlado":+taxa<=30?"◆ Atenção":"▲ Crítico"}
@@ -1255,15 +1284,15 @@ function renderMonthCharts(){
   const prev= idx>0?RAW[idx-1]:null;
   const smp = prev?(SETOR_MENSAL[prev.m]||{}):null;
 
-  const d   = RAW.find(d=>d.m===activeMonth)||{T:0,NC:0,C:0};
-  const fechadasMes = d.C + d.NC;
-  const taxa= fechadasMes?(d.NC/fechadasMes*100).toFixed(1):"0.0";
+  const d   = RAW.find(d=>d.m===activeMonth)||{T:0,NC:0,C:0,P:0};
+  const classificadasMes = d.C + d.NC;
+  const taxa= classificadasMes?(d.NC/classificadasMes*100).toFixed(1):"0.0";
 
   // Header do mês
   let prevCompare="";
   if(prev){
-    const prevFechadas = prev.C + prev.NC;
-    const pTaxa=prevFechadas?(prev.NC/prevFechadas*100).toFixed(1):"0.0";
+    const prevClassificadas = prev.C + prev.NC;
+    const pTaxa=prevClassificadas?(prev.NC/prevClassificadas*100).toFixed(1):"0.0";
     const diff=(+taxa - +pTaxa).toFixed(1);
     const cls=+diff>0?"d-up":+diff<0?"d-dn":"d-neu";
     const sym=+diff>0?"▲":+diff<0?"▼":"—";
@@ -1377,13 +1406,13 @@ function tblMonthly(){
   
   const allData = RAW.slice().reverse(); // para delta
   document.getElementById("tbody-monthly").innerHTML = displayData.map((d)=>{
-    const fechadas = d.C + d.NC;
-    const taxa = fechadas ? (d.NC / fechadas * 100).toFixed(1) : "0.0";
+    const classificadas = d.C + d.NC;
+    const taxa = classificadas ? (d.NC / classificadas * 100).toFixed(1) : "0.0";
     const col  = pctCol(+taxa);
     const idx  = allData.findIndex(x=>x.m===d.m);
     const prev = allData[idx+1];
-    const prevFechadas = prev ? (prev.C + prev.NC) : 0;
-    const pRate= prev&&prevFechadas?(prev.NC/prevFechadas*100):null;
+    const prevClassificadas = prev ? (prev.C + prev.NC) : 0;
+    const pRate= prev&&prevClassificadas?(prev.NC/prevClassificadas*100):null;
     let delta="";
     if(pRate!==null){
       const diff=(+taxa-pRate).toFixed(1);
@@ -1475,8 +1504,8 @@ function exportMonthlyCSV(){
   const rows = [
     ["Mês", "Total de OPs", "OPs Conformes", "OPs com NC", "Taxa NC %"],
     ...data.map(d => {
-      const fechadas = d.C + d.NC;
-      const taxa = fechadas ? (d.NC / fechadas * 100).toFixed(1).replace(".", ",") : "0,0";
+      const classificadas = d.C + d.NC;
+      const taxa = classificadas ? (d.NC / classificadas * 100).toFixed(1).replace(".", ",") : "0,0";
 
       return [
         fmtM(d.m),
