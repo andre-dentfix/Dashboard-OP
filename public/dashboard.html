@@ -452,7 +452,7 @@ const GOOGLE_SHEETS_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1v
 // Total OPs: 8.782 | OPs NC: 2.540 | Taxa média: 28.92%
 // Período: Out/2022 — Mai/2026
 // ══════════════════════════════════════════════════════
-const RAW = [
+let RAW = [
   {m:"2022-10",T:151,C:66,NC:85},{m:"2022-11",T:63,C:33,NC:30},{m:"2022-12",T:202,C:115,NC:87},
   {m:"2023-01",T:128,C:79,NC:49},{m:"2023-02",T:104,C:55,NC:49},{m:"2023-03",T:90,C:58,NC:31},
   {m:"2023-04",T:268,C:203,NC:65},{m:"2023-05",T:176,C:123,NC:53},{m:"2023-06",T:194,C:111,NC:83},
@@ -1149,6 +1149,83 @@ document.getElementById("last-updated").innerHTML =
   "Atualizado em: <strong>"+new Date().toLocaleDateString("pt-BR")+"</strong>";
 
 populateMonthSelect("all");
+function parseCSVLine(line) {
+  const result = [];
+  let current = "";
+  let insideQuotes = false;
+
+  for (let i = 0; i < line.length; i++) {
+    const char = line[i];
+    const nextChar = line[i + 1];
+
+    if (char === '"' && insideQuotes && nextChar === '"') {
+      current += '"';
+      i++;
+    } else if (char === '"') {
+      insideQuotes = !insideQuotes;
+    } else if ((char === "," || char === ";") && !insideQuotes) {
+      result.push(current.trim());
+      current = "";
+    } else {
+      current += char;
+    }
+  }
+
+  result.push(current.trim());
+  return result;
+}
+
+function normalizeHeader(value) {
+  return String(value || "")
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+}
+
+function parseGoogleSheetCSV(csvText) {
+  const lines = csvText
+    .split(/\r?\n/)
+    .map(line => line.trim())
+    .filter(Boolean);
+
+  if (lines.length < 2) {
+    return [];
+  }
+
+  const headers = parseCSVLine(lines[0]).map(normalizeHeader);
+
+  return lines.slice(1).map(line => {
+    const values = parseCSVLine(line);
+    const row = {};
+
+    headers.forEach((header, index) => {
+      row[header] = values[index] || "";
+    });
+
+    return row;
+  });
+}
+
+async function loadGoogleSheetData() {
+  try {
+    const response = await fetch(GOOGLE_SHEETS_CSV_URL);
+
+    if (!response.ok) {
+      throw new Error("Erro ao buscar planilha");
+    }
+
+    const csvText = await response.text();
+    const rows = parseGoogleSheetCSV(csvText);
+
+    console.log("Linhas carregadas da planilha:", rows.length);
+    console.log("Primeira linha:", rows[0]);
+  } catch (error) {
+    console.error("Erro ao carregar planilha:", error);
+  }
+}
+
+loadGoogleSheetData();  
 renderAll();
 </script>
 </body>
