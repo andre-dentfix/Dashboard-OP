@@ -937,7 +937,6 @@ function tblMonthly(){
   const allData = RAW.slice().reverse(); // para delta
   document.getElementById("tbody-monthly").innerHTML = displayData.map((d)=>{
     const taxa = d.T?(d.NC/d.T*100).toFixed(1):"0.0";
-    const taxaClass = taxa >= 22 ? "critical" : taxa >= 13 ? "warning" : "normal";
     const col  = pctCol(+taxa);
     const idx  = allData.findIndex(x=>x.m===d.m);
     const prev = allData[idx+1];
@@ -955,8 +954,8 @@ function tblMonthly(){
       <td><span class="chip-c">${d.C.toLocaleString("pt-BR")}</span></td>
       <td><span class="chip-nc">${d.NC.toLocaleString("pt-BR")}</span></td>
       <td><div class="bar-wrap">
-        <div class="bar-bg"><div class="bar-fill ${taxaClass}" style="width:${Math.min(+taxa,100)}%"></div></div>
-        <span class="bar-lbl taxa-label ${taxaClass}">${taxa}%</span>
+        <div class="bar-bg"><div class="bar-fill" style="width:${Math.min(+taxa,100)}%;background:${col}"></div></div>
+        <span class="bar-lbl" style="color:${col}">${taxa}%</span>
       </div></td>
       <td>${delta}</td>
     </tr>`;
