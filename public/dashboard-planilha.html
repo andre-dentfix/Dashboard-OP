@@ -1,1154 +1,1053 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<link rel="icon" type="image/png" href="/favicon.png">
-<title>Controle de Fechamento de OPs</title>
-<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,300&display=swap" rel="stylesheet">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
-<style>
-  :root {
-    --bg:      #0d1117;
-    --surface: #161b22;
-    --surf2:   #1c2230;
-    --border:  #21293a;
-    --accent:  #e63946;
-    --accent2: #ff6b35;
-    --ok:      #2ec4b6;
-    --warn:    #f4a261;
-    --text:    #e6edf3;
-    --muted:   #768390;
-  }
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { background: var(--bg); color: var(--text); font-family: 'DM Sans', sans-serif; font-size: 14px; min-height: 100vh; overflow-x: hidden; }
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dashboard OP NC - Google Planilhas</title>
 
-  /* ── HEADER ── */
-  header {
-    background: var(--surface); border-bottom: 1px solid var(--border);
-    padding: 0 32px; height: 64px; position: sticky; top: 0; z-index: 100;
-    display: flex; align-items: center; justify-content: space-between;
-  }
-  .logo { display: flex; align-items: center; gap: 12px; }
-  .logo-icon { width: 36px; height: 36px; background: var(--accent); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-family: 'Rajdhani', sans-serif; font-size: 18px; font-weight: 700; color: #fff; }
-  .logo-text { font-family: 'Rajdhani', sans-serif; font-size: 18px; font-weight: 700; letter-spacing: .04em; }
-  .logo-sub  { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
-  .header-right { text-align: right; font-size: 12px; color: var(--muted); }
-  .header-right strong { color: var(--text); }
-
-  /* ── FILTER BAR ── */
-  .filter-bar {
-    background: var(--surface); border-bottom: 1px solid var(--border);
-    padding: 12px 32px; display: flex; align-items: center; gap: 20px; flex-wrap: wrap;
-  }
-  .filter-group { display: flex; align-items: center; gap: 10px; }
-  .filter-sep { width: 1px; height: 24px; background: var(--border); }
-  .filter-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; white-space: nowrap; }
-  .filter-btn {
-    background: transparent; border: 1px solid var(--border); color: var(--muted);
-    padding: 5px 14px; border-radius: 20px; cursor: pointer;
-    font-size: 12px; font-family: 'DM Sans', sans-serif; transition: all .2s;
-  }
-  .filter-btn:hover  { border-color: var(--accent); color: var(--text); }
-  .filter-btn.active { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
-
-  /* select de mês */
-  .month-select-wrap { position: relative; }
-  .month-select-wrap select {
-    appearance: none;
-    background: var(--surf2);
-    border: 1px solid var(--border);
-    color: var(--text);
-    padding: 5px 32px 5px 12px;
-    border-radius: 20px;
-    font-size: 12px;
-    font-family: 'DM Sans', sans-serif;
-    cursor: pointer;
-    transition: border-color .2s;
-    outline: none;
-  }
-  .month-select-wrap select:hover,
-  .month-select-wrap select:focus { border-color: var(--accent); }
-  .month-select-wrap select.active-month {
-    background: rgba(230,57,70,.15);
-    border-color: var(--accent);
-    color: var(--accent);
-    font-weight: 600;
-  }
-  .month-select-wrap::after {
-    content: '▾';
-    position: absolute;
-    right: 12px; top: 50%;
-    transform: translateY(-50%);
-    font-size: 10px;
-    color: var(--muted);
-    pointer-events: none;
-  }
-  .clear-month-btn {
-    background: transparent; border: 1px solid var(--border); color: var(--muted);
-    padding: 5px 10px; border-radius: 20px; cursor: pointer;
-    font-size: 11px; font-family: 'DM Sans', sans-serif; transition: all .2s;
-    display: none;
-  }
-  .clear-month-btn.visible { display: inline-flex; align-items: center; gap: 4px; }
-  .clear-month-btn:hover { border-color: var(--accent); color: var(--accent); }
-
-  /* periodo badge */
-  .period-pill {
-    display: inline-flex; align-items: center; gap: 6px;
-    background: rgba(88,166,255,.1); border: 1px solid rgba(88,166,255,.25);
-    color: #58a6ff; padding: 4px 12px; border-radius: 20px;
-    font-size: 12px; font-weight: 600;
-    transition: all .3s;
-  }
-  .period-pill.month-mode {
-    background: rgba(230,57,70,.1);
-    border-color: rgba(230,57,70,.3);
-    color: var(--accent);
-  }
-
-  /* ── MAIN ── */
-  main { padding: 28px 32px; max-width: 1600px; margin: 0 auto; }
-  .section-title { font-family: 'Rajdhani', sans-serif; font-size: 13px; font-weight: 600; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); margin-bottom: 14px; display: flex; align-items: center; gap: 8px; }
-  .section-title::after { content: ''; flex: 1; height: 1px; background: var(--border); }
-
-  /* ── KPI ── */
-  .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 16px; margin-bottom: 28px; }
-  .kpi-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 20px 22px; position: relative; overflow: hidden; transition: transform .2s, box-shadow .2s; }
-  .kpi-card:hover { transform: translateY(-2px); box-shadow: 0 8px 30px rgba(0,0,0,.4); }
-  .kpi-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; background: var(--kpi-color, var(--accent)); }
-  .kpi-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; margin-bottom: 8px; }
-  .kpi-value { font-family: 'Rajdhani', sans-serif; font-size: 38px; font-weight: 700; line-height: 1; color: var(--kpi-color, var(--text)); }
-  .kpi-sub   { font-size: 12px; color: var(--muted); margin-top: 6px; }
-  .kpi-badge { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 10px; margin-top: 6px; }
-  .bg { background: rgba(46,196,182,.15);  color: var(--ok); }
-  .bw { background: rgba(244,162,97,.15);  color: var(--warn); }
-  .bb { background: rgba(230,57,70,.15);   color: var(--accent); }
-
-  /* comparativo mês */
-  .kpi-delta { font-size: 12px; margin-top: 8px; display: flex; align-items: center; gap: 5px; }
-  .kpi-delta .d-up  { color: var(--accent); }
-  .kpi-delta .d-dn  { color: var(--ok); }
-  .kpi-delta .d-neu { color: var(--muted); }
-
-  /* ── CHARTS ── */
-  .chart-grid { display: grid; gap: 16px; margin-bottom: 28px; }
-  .grid-2 { grid-template-columns: repeat(2, 1fr); }
-  .chart-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 20px 22px; }
-  .chart-card.full { grid-column: 1 / -1; }
-  .chart-title { font-family: 'Rajdhani', sans-serif; font-size: 15px; font-weight: 600; letter-spacing: .04em; margin-bottom: 4px; }
-  .chart-desc  { font-size: 11px; color: var(--muted); margin-bottom: 16px; }
-
-  /* ── MONTH VIEW ── */
-  .month-view { display: none; margin-bottom: 28px; }
-  .month-view.visible { display: block; }
-
-  .month-header-card {
-    background: linear-gradient(135deg, rgba(230,57,70,.08) 0%, rgba(255,107,53,.05) 100%);
-    border: 1px solid rgba(230,57,70,.2);
-    border-radius: 12px;
-    padding: 24px 28px;
-    margin-bottom: 16px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    flex-wrap: wrap;
-    gap: 16px;
-  }
-  .month-header-title { font-family: 'Rajdhani', sans-serif; font-size: 28px; font-weight: 700; color: var(--accent); }
-  .month-header-sub   { font-size: 13px; color: var(--muted); margin-top: 4px; }
-  .month-stats { display: flex; gap: 32px; flex-wrap: wrap; }
-  .month-stat { text-align: center; }
-  .month-stat-val { font-family: 'Rajdhani', sans-serif; font-size: 32px; font-weight: 700; }
-  .month-stat-lbl { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
-
-  /* ── TABLES ── */
-  .table-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; margin-bottom: 28px; }
-  .table-header { padding: 16px 22px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
-  .table-title  { font-family: 'Rajdhani', sans-serif; font-size: 15px; font-weight: 600; }
-  .table-badge  { font-size: 11px; color: var(--muted); background: var(--surf2); padding: 3px 10px; border-radius: 10px; }
-  table { width: 100%; border-collapse: collapse; }
-  thead th { background: var(--surf2); padding: 10px 16px; text-align: left; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); white-space: nowrap; }
-  tbody tr { border-bottom: 1px solid var(--border); transition: background .15s; }
-  tbody tr:last-child { border-bottom: none; }
-  tbody tr:hover { background: var(--surf2); }
-  tbody td { padding: 10px 16px; font-size: 13px; vertical-align: middle; }
-  .chip-nc { background: rgba(230,57,70,.15);  color: var(--accent); padding: 2px 10px; border-radius: 10px; font-size: 11px; font-weight: 600; }
-  .chip-c  { background: rgba(46,196,182,.15); color: var(--ok);     padding: 2px 10px; border-radius: 10px; font-size: 11px; font-weight: 600; }
-  .bar-wrap { display: flex; align-items: center; gap: 8px; }
-  .bar-bg   { flex: 1; height: 6px; background: var(--border); border-radius: 3px; overflow: hidden; min-width: 60px; }
-  .bar-fill { height: 100%; border-radius: 3px; transition: width .4s; }
-    .bar-fill.normal {
-  background: var(--accent);
+  <style>
+    :root {
+      --bg: #080c14;
+      --surface: #0f1724;
+      --surface-2: #151f30;
+      --border: #263247;
+      --text: #f4f7fb;
+      --muted: #93a4b8;
+      --blue: #38bdf8;
+      --green: #22c55e;
+      --red: #ef4444;
+      --orange: #f59e0b;
+      --purple: #a78bfa;
     }
-        .bar-fill.warning {
-      background: var(--warn);
-    }
-        .bar-fill.critical {
-      background: var(--danger);
-    }
-        .taxa-label.normal {
-      color: var(--accent);
-    }
-        .taxa-label.warning {
-      color: var(--warn);
-    }
-        .taxa-label.critical {
-      color: var(--danger);
-    }
-  .bar-lbl  { font-size: 12px; font-weight: 600; min-width: 40px; text-align: right; }
-  .delta    { font-size: 11px; padding: 2px 7px; border-radius: 8px; font-weight: 600; }
-.d-up  { background: rgba(230,57,70,.15);   color: var(--accent); }
-  .d-dn  { background: rgba(46,196,182,.15);  color: var(--ok); }
-  .d-neu { background: rgba(118,131,144,.15); color: var(--muted); }
 
-  /* Expandir tabela */
-  .export-btn {
-    background: transparent;
-    border: 1px solid var(--border);
-    color: var(--muted);
-    padding: 6px 10px;
-    border-radius: 8px;
-    cursor: pointer;
-    font-size: 12px;
-    font-family: 'DM Sans', sans-serif;
-    transition: all .2s;
-  }
-  
-  .export-btn:hover {
-    border-color: var(--accent);
-    color: var(--text);
-    background: var(--surf2);
-  }
-  .expand-btn {
-  background: transparent;
-  border: 1px solid var(--border);
-  color: var(--muted);
-  padding: 10px 20px;
-  border-radius: 8px;
-  cursor: pointer;
-  font-size: 13px;
-  font-family: 'DM Sans', sans-serif;
-  transition: all .2s;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  width: 100%;
-  margin-top: 0;
-  }
-  .expand-btn:hover {
-    border-color: var(--accent);
-    color: var(--text);
-    background: var(--surf2);
-  .expand-btn svg {
-    transition: transform .3s;
-  }
-  .expand-btn.expanded svg {
-    transform: rotate(180deg);
-  }
-  .table-footer {
-    padding: 12px 22px;
-    border-top: 1px solid var(--border);
-  }
+    * {
+      box-sizing: border-box;
+    }
 
-  /* ── ANIM ── */
-  @keyframes fadeUp { from { opacity:0; transform:translateY(14px); } to { opacity:1; transform:translateY(0); } }
-  .kpi-card, .chart-card, .table-card, .month-header-card { animation: fadeUp .35s ease both; }
-  .kpi-card:nth-child(1){animation-delay:.04s} .kpi-card:nth-child(2){animation-delay:.08s}
-  .kpi-card:nth-child(3){animation-delay:.12s} .kpi-card:nth-child(4){animation-delay:.16s}
-  .kpi-card:nth-child(5){animation-delay:.20s} .kpi-card:nth-child(6){animation-delay:.24s}
+    body {
+      margin: 0;
+      background:
+        radial-gradient(circle at top left, rgba(56, 189, 248, 0.14), transparent 30%),
+        radial-gradient(circle at top right, rgba(167, 139, 250, 0.12), transparent 30%),
+        var(--bg);
+      color: var(--text);
+      font-family: Arial, Helvetica, sans-serif;
+    }
 
-  /* ── RESPONSIVE ── */
-  @media (max-width:960px) { main { padding:20px 16px; } .grid-2 { grid-template-columns:1fr; } }
-  @media (max-width:700px)  { .filter-bar { gap:10px; } .filter-sep { display:none; } }
-  @media (max-width:600px)  { header,.filter-bar { padding-left:16px; padding-right:16px; } .kpi-grid { grid-template-columns:repeat(2,1fr); } }
+    .container {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 28px;
+    }
 
-  ::-webkit-scrollbar { width:6px; height:6px; }
-  ::-webkit-scrollbar-track { background:var(--bg); }
-  ::-webkit-scrollbar-thumb { background:var(--border); border-radius:3px; }
-  ::-webkit-scrollbar-thumb:hover { background:var(--muted); }
-</style>
+    header {
+      display: flex;
+      justify-content: space-between;
+      gap: 20px;
+      align-items: flex-start;
+      margin-bottom: 24px;
+    }
+
+    .eyebrow {
+      color: var(--blue);
+      font-size: 12px;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      font-weight: 700;
+      margin-bottom: 8px;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(28px, 4vw, 44px);
+      line-height: 1.1;
+    }
+
+    .subtitle {
+      margin: 10px 0 0;
+      color: var(--muted);
+      max-width: 780px;
+      line-height: 1.5;
+    }
+
+    .status-box {
+      min-width: 260px;
+      border: 1px solid var(--border);
+      background: rgba(15, 23, 36, 0.86);
+      border-radius: 16px;
+      padding: 14px;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.4;
+    }
+
+    .status-ok {
+      color: var(--green);
+      font-weight: 700;
+    }
+
+    .status-error {
+      color: var(--red);
+      font-weight: 700;
+    }
+
+    .filters {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      flex-wrap: wrap;
+      border: 1px solid var(--border);
+      background: rgba(15, 23, 36, 0.78);
+      border-radius: 18px;
+      padding: 16px;
+      margin-bottom: 20px;
+    }
+
+    label {
+      color: var(--muted);
+      font-size: 13px;
+      display: block;
+      margin-bottom: 5px;
+    }
+
+    select,
+    button {
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      color: var(--text);
+      border-radius: 10px;
+      padding: 9px 12px;
+      font-size: 14px;
+    }
+
+    button {
+      cursor: pointer;
+      transition: 0.2s;
+    }
+
+    button:hover {
+      border-color: var(--blue);
+    }
+
+    .kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(160px, 1fr));
+      gap: 14px;
+      margin-bottom: 22px;
+    }
+
+    .kpi-card {
+      border: 1px solid var(--border);
+      background: linear-gradient(180deg, rgba(21, 31, 48, 0.95), rgba(15, 23, 36, 0.95));
+      border-radius: 18px;
+      padding: 18px;
+      min-height: 130px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .kpi-card::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      border-top: 3px solid var(--card-color, var(--blue));
+      opacity: 0.9;
+      pointer-events: none;
+    }
+
+    .kpi-label {
+      color: var(--muted);
+      font-size: 13px;
+      margin-bottom: 12px;
+    }
+
+    .kpi-value {
+      font-size: 34px;
+      font-weight: 800;
+      letter-spacing: -0.03em;
+    }
+
+    .kpi-sub {
+      color: var(--muted);
+      font-size: 12px;
+      margin-top: 8px;
+      line-height: 1.35;
+    }
+
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1.2fr 0.8fr;
+      gap: 16px;
+      margin-bottom: 16px;
+    }
+
+    .card {
+      border: 1px solid var(--border);
+      background: rgba(15, 23, 36, 0.88);
+      border-radius: 18px;
+      padding: 18px;
+    }
+
+    .card h2 {
+      margin: 0 0 4px;
+      font-size: 18px;
+    }
+
+    .card-sub {
+      color: var(--muted);
+      font-size: 13px;
+      margin-bottom: 16px;
+    }
+
+    .bar-row {
+      display: grid;
+      grid-template-columns: 90px 1fr 70px;
+      gap: 12px;
+      align-items: center;
+      margin-bottom: 10px;
+      font-size: 13px;
+    }
+
+    .bar-bg {
+      background: #0a101a;
+      border: 1px solid var(--border);
+      height: 11px;
+      border-radius: 999px;
+      overflow: hidden;
+    }
+
+    .bar-fill {
+      height: 100%;
+      border-radius: 999px;
+      background: var(--blue);
+    }
+
+    .bar-fill.green {
+      background: var(--green);
+    }
+
+    .bar-fill.red {
+      background: var(--red);
+    }
+
+    .bar-fill.orange {
+      background: var(--orange);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+
+    th,
+    td {
+      padding: 11px 10px;
+      border-bottom: 1px solid var(--border);
+      text-align: left;
+      vertical-align: middle;
+    }
+
+    th {
+      color: var(--muted);
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      background: rgba(21, 31, 48, 0.65);
+    }
+
+    tr:hover td {
+      background: rgba(56, 189, 248, 0.04);
+    }
+
+    .chip {
+      display: inline-block;
+      border-radius: 999px;
+      padding: 4px 9px;
+      font-weight: 700;
+      font-size: 12px;
+    }
+
+    .chip.green {
+      color: var(--green);
+      background: rgba(34, 197, 94, 0.13);
+    }
+
+    .chip.red {
+      color: var(--red);
+      background: rgba(239, 68, 68, 0.13);
+    }
+
+    .chip.orange {
+      color: var(--orange);
+      background: rgba(245, 158, 11, 0.13);
+    }
+
+    .chip.blue {
+      color: var(--blue);
+      background: rgba(56, 189, 248, 0.13);
+    }
+
+    .table-actions {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 12px;
+      flex-wrap: wrap;
+    }
+
+    .empty {
+      padding: 20px;
+      color: var(--muted);
+      border: 1px dashed var(--border);
+      border-radius: 14px;
+      text-align: center;
+    }
+
+    @media (max-width: 1000px) {
+      header,
+      .grid-2 {
+        grid-template-columns: 1fr;
+        display: block;
+      }
+
+      .status-box {
+        margin-top: 16px;
+      }
+
+      .kpi-grid {
+        grid-template-columns: repeat(2, minmax(160px, 1fr));
+      }
+    }
+
+    @media (max-width: 640px) {
+      .container {
+        padding: 16px;
+      }
+
+      .kpi-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .card {
+        overflow-x: auto;
+      }
+    }
+  </style>
 </head>
+
 <body>
-
-<header>
-  <div class="logo">
-    <div class="logo-icon">★</div>
-    <div>
-      <div class="logo-text">Dashboard de OPs</div>
-      <div class="logo-sub">Análise de Não-Conformidades em OPs</div>
-    </div>
-  </div>
-  <div class="header-right">
-        <div id="last-updated" style="margin-top:2px"></div>
-  </div>
-</header>
-
-<div class="filter-bar">
-  <!-- Filtro de ano -->
-  <div class="filter-group">
-    <span class="filter-label">Ano</span>
-    <button class="filter-btn active" data-year="all">Todos</button>
-    <button class="filter-btn" data-year="2022">2022</button>
-    <button class="filter-btn" data-year="2023">2023</button>
-    <button class="filter-btn" data-year="2024">2024</button>
-    <button class="filter-btn" data-year="2025">2025</button>
-    <button class="filter-btn" data-year="2026">2026</button>
-  </div>
-
-  <div class="filter-sep"></div>
-
-  <!-- Filtro de mês -->
-  <div class="filter-group">
-    <span class="filter-label">Mês</span>
-    <div class="month-select-wrap">
-      <select id="month-select">
-        <option value="">— Selecionar mês —</option>
-      </select>
-    </div>
-    <button class="clear-month-btn" id="clear-month-btn">✕ Limpar</button>
-  </div>
-
-  <div class="filter-sep"></div>
-
-  <!-- Período ativo -->
-  <div class="period-pill" id="period-pill">
-    <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor"><path d="M11 6.5a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-1a.5.5 0 0 1-.5-.5v-1z"/><path d="M3.5 0a.5.5 0 0 1 .5.5V1h8V.5a.5.5 0 0 1 1 0V1h1a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V3a2 2 0 0 1 2-2h1V.5a.5.5 0 0 1 .5-.5zM1 4v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V4H1z"/></svg>
-    <span id="period-label">Todos os períodos</span>
-  </div>
-</div>
-
-<main>
-
-  <!-- KPIs -->
-  <div class="section-title">Indicadores Gerais</div>
-  <div class="kpi-grid" id="kpi-grid"></div>
-
-  <!-- View de mês específico -->
-  <div class="month-view" id="month-view">
-    <div class="month-header-card" id="month-header-card"></div>
-    <div class="chart-grid grid-2">
-      <div class="chart-card">
-        <div class="chart-title">NCs por Setor no Mês</div>
-        <div class="chart-desc">Distribuição de responsabilidades no período selecionado</div>
-        <canvas id="chartMonthSetor" height="200"></canvas>
+  <div class="container">
+    <header>
+      <div>
+        <div class="eyebrow">SGQ • PCP • Produção</div>
+        <h1>Dashboard de OPs e Não Conformidades</h1>
+        <p class="subtitle">
+          Dashboard conectado ao Google Planilhas para acompanhamento de Ordens de Produção,
+          conformidade, não conformidades, pendências e setores envolvidos.
+        </p>
       </div>
-      <div class="chart-card">
-        <div class="chart-title">Comparativo com Mês Anterior</div>
-        <div class="chart-desc">NCs por setor: mês atual vs anterior</div>
-        <canvas id="chartMonthComp" height="200"></canvas>
+
+      <div class="status-box">
+        <div id="load-status">Carregando dados da planilha...</div>
+        <div id="last-update"></div>
       </div>
-    </div>
+    </header>
+
+    <section class="filters">
+      <div>
+        <label for="year-filter">Ano</label>
+        <select id="year-filter">
+          <option value="all">Todos</option>
+        </select>
+      </div>
+
+      <div>
+        <label for="month-filter">Mês</label>
+        <select id="month-filter">
+          <option value="all">Todos</option>
+        </select>
+      </div>
+
+      <div style="margin-top: 20px;">
+        <button id="clear-filters">Limpar filtros</button>
+      </div>
+    </section>
+
+    <section class="kpi-grid">
+      <div class="kpi-card" style="--card-color: var(--blue);">
+        <div class="kpi-label">Total de OPs</div>
+        <div class="kpi-value" id="kpi-total">0</div>
+        <div class="kpi-sub">OPs que passaram pelo SGQ no período</div>
+      </div>
+
+      <div class="kpi-card" style="--card-color: var(--green);">
+        <div class="kpi-label">OPs Conformes</div>
+        <div class="kpi-value" id="kpi-conformes">0</div>
+        <div class="kpi-sub">Finalizadas como conformes</div>
+      </div>
+
+      <div class="kpi-card" style="--card-color: var(--red);">
+        <div class="kpi-label">OPs com NC</div>
+        <div class="kpi-value" id="kpi-nc">0</div>
+        <div class="kpi-sub">Finalizadas com não conformidade</div>
+      </div>
+
+      <div class="kpi-card" style="--card-color: var(--orange);">
+        <div class="kpi-label">OPs Pendentes</div>
+        <div class="kpi-value" id="kpi-pendentes">0</div>
+        <div class="kpi-sub">OPs sem marcação de finalização</div>
+      </div>
+
+      <div class="kpi-card" style="--card-color: var(--purple);">
+        <div class="kpi-label">Taxa de NC</div>
+        <div class="kpi-value" id="kpi-taxa">0,0%</div>
+        <div class="kpi-sub">Calculada sobre OPs finalizadas</div>
+      </div>
+    </section>
+
+    <section class="grid-2">
+      <div class="card">
+        <h2>Evolução Mensal</h2>
+        <div class="card-sub">Total de OPs, conformes, NCs e pendentes por mês</div>
+        <div id="monthly-chart"></div>
+      </div>
+
+      <div class="card">
+        <h2>Ranking de Setores</h2>
+        <div class="card-sub">Contagem individual dos setores envolvidos em NCs</div>
+        <div id="sector-ranking"></div>
+      </div>
+    </section>
+
+    <section class="grid-2">
+      <div class="card">
+        <div class="table-actions">
+          <div>
+            <h2>Resumo Mensal</h2>
+            <div class="card-sub">Indicadores consolidados por mês</div>
+          </div>
+          <button id="export-monthly">Exportar CSV</button>
+        </div>
+
+        <div style="overflow-x:auto;">
+          <table>
+            <thead>
+              <tr>
+                <th>Mês</th>
+                <th>Total de OPs</th>
+                <th>Conformes</th>
+                <th>NC</th>
+                <th>Pendentes</th>
+                <th>Taxa NC</th>
+              </tr>
+            </thead>
+            <tbody id="monthly-table"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Principais Motivos</h2>
+        <div class="card-sub">Frequência nas observações encontradas</div>
+        <div id="reason-ranking"></div>
+      </div>
+    </section>
   </div>
 
-  <!-- View geral (esconde no modo mês) -->
-  <div id="general-view">
-    <div class="section-title">Evolução Mensal</div>
-    <div class="chart-grid">
-      <div class="chart-card full">
-        <div class="chart-title">Volume de OPs e NCs por Mês</div>
-        <div class="chart-desc">Barras: OPs conformes (verde) e NCs por setor (vermelho) · Linha: taxa NC %</div>
-        <canvas id="chartTrend" height="80"></canvas>
-      </div>
-    </div>
+  <script>
+    const GOOGLE_SHEETS_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQ8NJ0RGailXqtI6DqFlBa7KUsJUiQz8ZXsiVRvTsagP61ssGSY0CWBbtxReBPEFxCXrjKY8AK1aiPC/pub?gid=0&single=true&output=csv";
 
-    <div class="section-title">Análise por Setor</div>
-    <div class="chart-grid grid-2">
-      <div class="chart-card">
-        <div class="chart-title">NCs por Setor — Acumulado</div>
-        <div class="chart-desc">NC por setor representa a contagem dos setores envolvidos nas não conformidades; por isso, uma mesma OP pode contabilizar mais de um setor quando houver mais de uma área envolvida.</div>
-        <canvas id="chartSetor" height="200"></canvas>
-      </div>
-      <div class="chart-card">
-        <div class="chart-title">NCs por Setor — Evolução Anual</div>
-        <div class="chart-desc">Top 6 setores com mais NCs, ano a ano</div>
-        <canvas id="chartSetorAnual" height="200"></canvas>
-      </div>
-    </div>
+    let allRows = [];
+    let monthlyData = [];
 
-    <div class="chart-grid grid-2">
-      <div class="chart-card">
-        <div class="chart-title">Resumo Anual</div>
-        <div class="chart-desc">OPs conformes vs NCs explodidas por ano</div>
-        <canvas id="chartAnual" height="180"></canvas>
-      </div>
-      <div class="chart-card">
-        <div class="chart-title">Principais Motivos de NC</div>
-        <div class="chart-desc">Frequência por tipo de não-conformidade nas observações</div>
-        <canvas id="chartMotivos" height="180"></canvas>
-      </div>
-    </div>
-  </div>
-
-  <!-- Tabela mensal (sempre visível) -->
-  <div class="section-title">Histórico Mensal Detalhado</div>
-  <div class="table-card">
-    <div class="table-header">
-    <div class="table-title">Resumo por Mês</div>
-    <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
-      <div class="table-badge" id="tbl-monthly-count"></div>
-      <button class="export-btn" id="export-monthly-btn">Exportar CSV</button>
-  </div>
-
-</div>
-    <div style="overflow-x:auto">
-<table>
-        <thead><tr>
-          <th>Mês</th>
-          <th>Total de OPs</th>
-          <th>OPs Conformes</th>
-          <th>OPs com NC</th>
-          <th>Taxa NC %</th>
-          <th>vs. Mês Ant.</th>
-        </tr></thead>
-        <tbody id="tbody-monthly"></tbody>
-      </table>
-    </div>
-    <div class="table-footer" id="monthly-table-footer" style="display:none">
-      <button class="expand-btn" id="expand-monthly-btn">
-        <span id="expand-monthly-text">Ver mais</span>
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <polyline points="6 9 12 15 18 9"></polyline>
-        </svg>
-      </button>
-    </div>
-  </div>
-
-  <!-- Ranking setores (sempre visível) -->
-  <div class="section-title">Ranking de Setores</div>
-  <div class="table-card">
-    <div class="table-header">
-      <div class="table-title">NCs por Setor — Contagem Individual</div>
-      <div class="table-badge" id="tbl-setor-count"></div>
-    </div>
-    <div style="overflow-x:auto">
-<table>
-        <thead><tr>
-          <th>Pos.</th>
-          <th>Setor</th>
-          <th>NCs</th>
-          <th>Participação</th>
-        </tr></thead>
-        <tbody id="tbody-setor"></tbody>
-      </table>
-    </div>
-    <div class="table-footer" id="setor-table-footer" style="display:none">
-      <button class="expand-btn" id="expand-setor-btn">
-        <span id="expand-setor-text">Ver mais</span>
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <polyline points="6 9 12 15 18 9"></polyline>
-        </svg>
-      </button>
-    </div>
-  </div>
-
-</main>
-
-<script>
-// ══════════════════════════════════════════════════════
-// DADOS — Atualizado automaticamente via planilha CSV
-// Total OPs: 8.782 | OPs NC: 2.540 | Taxa média: 28.92%
-// Período: Out/2022 — Mai/2026
-// ══════════════════════════════════════════════════════
-const RAW = [
-  {m:"2022-10",T:151,C:66,NC:85},{m:"2022-11",T:63,C:33,NC:30},{m:"2022-12",T:202,C:115,NC:87},
-  {m:"2023-01",T:128,C:79,NC:49},{m:"2023-02",T:104,C:55,NC:49},{m:"2023-03",T:90,C:58,NC:31},
-  {m:"2023-04",T:268,C:203,NC:65},{m:"2023-05",T:176,C:123,NC:53},{m:"2023-06",T:194,C:111,NC:83},
-  {m:"2023-07",T:121,C:71,NC:49},{m:"2023-08",T:48,C:33,NC:15},{m:"2023-09",T:273,C:170,NC:102},
-  {m:"2023-10",T:264,C:165,NC:97},{m:"2023-11",T:239,C:147,NC:92},{m:"2023-12",T:151,C:98,NC:52},
-  {m:"2024-01",T:238,C:177,NC:61},{m:"2024-02",T:233,C:85,NC:148},{m:"2024-03",T:27,C:27,NC:0},
-  {m:"2024-04",T:29,C:19,NC:10},{m:"2024-05",T:152,C:84,NC:68},{m:"2024-06",T:496,C:307,NC:189},
-  {m:"2024-07",T:358,C:254,NC:104},{m:"2024-08",T:280,C:234,NC:46},{m:"2024-09",T:202,C:164,NC:38},
-  {m:"2024-10",T:201,C:171,NC:30},{m:"2024-11",T:164,C:136,NC:28},{m:"2024-12",T:193,C:159,NC:34},
-  {m:"2025-01",T:139,C:115,NC:24},{m:"2025-02",T:183,C:158,NC:25},{m:"2025-03",T:281,C:242,NC:39},
-  {m:"2025-04",T:182,C:135,NC:47},{m:"2025-05",T:199,C:163,NC:36},{m:"2025-06",T:228,C:187,NC:41},
-  {m:"2025-07",T:211,C:159,NC:52},{m:"2025-08",T:247,C:175,NC:72},{m:"2025-09",T:292,C:215,NC:77},
-  {m:"2025-10",T:305,C:245,NC:60},{m:"2025-11",T:203,C:155,NC:48},{m:"2025-12",T:230,C:168,NC:60},
-  {m:"2026-01",T:298,C:207,NC:91},{m:"2026-02",T:217,C:167,NC:50},
-  {m:"2026-03",T:244,C:175,NC:69},{m:"2026-04",T:244,C:192,NC:49},{m:"2026-05",T:33,C:28,NC:5}
-];
-
-const ANNUAL = [
-  {ano:2022,T:416, NC:202, C:214},
-  {ano:2023,T:2056,NC:737, C:1313},
-  {ano:2024,T:2573,NC:756, C:1817},
-  {ano:2025,T:2700,NC:581, C:2117},
-  {ano:2026,T:1036,NC:264, C:769}
-];
-
-const SETOR_NC = {
-  "CQ":704,"Produção":262,"Projeto":241,"Rotulagem":235,
-  "Almoxarifado":167,"PCP":162,"Usinagem":105,"Estoque":78,
-  "Laboratório":72,"Gravação":47,"Engenharia":10
-};
-
-const SETOR_ANUAL = {
-  "CQ":          {2022:35, 2023:82, 2024:270,2025:253,2026:64},
-  "Produção":    {2022:16, 2023:8,  2024:30, 2025:152,2026:56},
-  "Projeto":     {2022:19, 2023:129,2024:40, 2025:48, 2026:5},
-  "Rotulagem":   {2022:19, 2023:31, 2024:97, 2025:62, 2026:26},
-  "Almoxarifado":{2022:8,  2023:22, 2024:84, 2025:39, 2026:14},
-  "PCP":         {2022:11, 2023:74, 2024:32, 2025:32, 2026:13},
-  "Usinagem":    {2022:5,  2023:32, 2024:53, 2025:15},
-  "Estoque":     {2022:5,  2023:16, 2024:21, 2025:23, 2026:13},
-  "Laboratório": {2022:2,  2023:11, 2024:41, 2025:15, 2026:3},
-  "Gravação":    {2022:2,  2023:9,  2024:12, 2025:5,  2026:19},
-  "Engenharia":  {2022:2,  2023:2,  2025:6}
-};
-
-// NCs por setor por mês — gerado da planilha CSV
-const SETOR_MENSAL = {
-  "2022-10":{"PCP":7,"Engenharia":2,"Estoque":3,"Produção":4,"CQ":18,"Rotulagem":12,"Usinagem":4,"Projeto":1,"Laboratório":1,"Almoxarifado":1},
-  "2022-11":{"PCP":1,"CQ":5,"Produção":2,"Estoque":2,"Almoxarifado":3,"Rotulagem":1,"Projeto":6},
-  "2022-12":{"Projeto":12,"Produção":10,"CQ":12,"Rotulagem":6,"Almoxarifado":4,"PCP":3,"Laboratório":1,"Gravação":2,"Usinagem":1},
-  "2023-01":{"CQ":10,"Produção":1,"Usinagem":1,"Rotulagem":2,"PCP":1,"Gravação":1,"Projeto":2},
-  "2023-02":{"Projeto":7,"Almoxarifado":2,"CQ":4,"Estoque":3,"Gravação":4,"Produção":2,"Usinagem":1,"Rotulagem":1},
-  "2023-03":{"Projeto":5,"CQ":5,"Usinagem":1,"Rotulagem":1,"Produção":1,"Almoxarifado":1},
-  "2023-04":{"Projeto":10,"Estoque":3,"CQ":4,"Laboratório":1,"Rotulagem":2,"Produção":1,"Usinagem":2,"Gravação":1},
-  "2023-05":{"Produção":3,"Projeto":8,"Estoque":1,"CQ":7,"PCP":2,"Rotulagem":4,"Almoxarifado":2},
-  "2023-06":{"Projeto":17,"PCP":6,"Laboratório":1,"CQ":10,"Gravação":1},
-  "2023-07":{"Estoque":1,"PCP":4,"Projeto":3,"Usinagem":2,"Almoxarifado":1,"Rotulagem":1,"CQ":3},
-  "2023-08":{"Usinagem":2,"PCP":2,"CQ":3,"Projeto":1,"Almoxarifado":1},
-  "2023-09":{"Engenharia":2,"PCP":27,"Almoxarifado":4,"Rotulagem":7,"Usinagem":6,"CQ":6,"Laboratório":6,"Estoque":1,"Projeto":4},
-  "2023-10":{"CQ":9,"Estoque":5,"Usinagem":5,"Projeto":28,"Laboratório":1,"Rotulagem":7,"Almoxarifado":5,"PCP":23},
-  "2023-11":{"CQ":18,"Projeto":35,"Usinagem":10,"PCP":7,"Rotulagem":3,"Almoxarifado":5,"Gravação":1,"Estoque":1,"Laboratório":1},
-  "2023-12":{"Rotulagem":3,"CQ":3,"Projeto":9,"Estoque":1,"Usinagem":2,"Laboratório":1,"Gravação":1,"PCP":2,"Almoxarifado":1},
-  "2024-01":{"Almoxarifado":2,"Gravação":2,"Projeto":6,"Usinagem":10,"Rotulagem":2,"CQ":12,"Laboratório":1,"PCP":3},
-  "2024-02":{"PCP":5,"Laboratório":2,"Projeto":4,"Almoxarifado":6,"Usinagem":7,"CQ":24,"Rotulagem":5,"Gravação":1},
-  "2024-05":{"CQ":32,"Rotulagem":9,"Usinagem":7,"PCP":8,"Projeto":6,"Almoxarifado":6,"Laboratório":4,"Estoque":4},
-  "2024-06":{"Estoque":10,"Almoxarifado":48,"CQ":60,"Usinagem":11,"Rotulagem":42,"Projeto":2,"PCP":7,"Laboratório":16,"Gravação":3,"Produção":5},
-  "2024-07":{"Rotulagem":15,"CQ":53,"Almoxarifado":14,"Produção":5,"Usinagem":6,"Gravação":3,"Estoque":1,"Laboratório":9,"PCP":7,"Projeto":1},
-  "2024-08":{"PCP":2,"Usinagem":4,"CQ":28,"Rotulagem":6,"Laboratório":2,"Gravação":2,"Estoque":2,"Produção":2,"Almoxarifado":1},
-  "2024-09":{"CQ":26,"Estoque":2,"Rotulagem":2,"Usinagem":1,"Almoxarifado":1,"Produção":3,"Laboratório":2,"Projeto":4},
-  "2024-10":{"CQ":12,"Rotulagem":4,"Almoxarifado":2,"Produção":8,"Laboratório":2,"Projeto":4,"Gravação":1,"Estoque":1,"Usinagem":2},
-  "2024-11":{"Rotulagem":9,"Almoxarifado":2,"Projeto":8,"CQ":5,"Usinagem":1,"Produção":3,"Laboratório":2},
-  "2024-12":{"Projeto":5,"Produção":4,"Estoque":1,"CQ":18,"Usinagem":4,"Rotulagem":3,"Almoxarifado":2,"Laboratório":1},
-  "2025-01":{"Usinagem":5,"Projeto":4,"CQ":14,"Laboratório":1,"Rotulagem":1,"Estoque":3,"Produção":1},
-  "2025-02":{"CQ":4,"Rotulagem":1,"Laboratório":2,"Usinagem":3,"Projeto":6,"Produção":7,"Estoque":1},
-  "2025-03":{"CQ":23,"Estoque":1,"Almoxarifado":3,"Usinagem":2,"Rotulagem":4,"Produção":7,"Projeto":2,"Gravação":1},
-  "2025-04":{"Produção":15,"CQ":19,"Rotulagem":5,"Projeto":6,"Laboratório":1,"Almoxarifado":3,"Usinagem":2,"PCP":2},
-  "2025-05":{"Projeto":7,"CQ":10,"Rotulagem":9,"Produção":4,"Almoxarifado":5,"Laboratório":1,"PCP":1},
-  "2025-06":{"Produção":12,"Laboratório":3,"Projeto":7,"CQ":23,"Rotulagem":1,"Almoxarifado":3,"Estoque":2},
-  "2025-07":{"CQ":33,"Projeto":1,"Produção":12,"Rotulagem":6,"Almoxarifado":2,"Estoque":1,"PCP":2,"Laboratório":3,"Usinagem":2,"Engenharia":2},
-  "2025-08":{"CQ":34,"Projeto":2,"Produção":12,"Estoque":3,"Engenharia":2,"PCP":11,"Rotulagem":2,"Usinagem":1,"Almoxarifado":4,"Laboratório":1},
-  "2025-09":{"PCP":11,"Engenharia":2,"CQ":32,"Rotulagem":13,"Produção":17,"Gravação":1,"Estoque":5,"Projeto":5,"Almoxarifado":1},
-  "2025-10":{"Projeto":6,"Produção":30,"CQ":24,"Almoxarifado":10,"Rotulagem":3,"Estoque":1,"PCP":1},
-  "2025-11":{"CQ":17,"Produção":19,"Almoxarifado":6,"PCP":3,"Projeto":2,"Rotulagem":6,"Estoque":1,"Gravação":1,"Laboratório":2},
-  "2025-12":{"CQ":20,"Produção":16,"Rotulagem":11,"Gravação":2,"Almoxarifado":2,"Estoque":5,"Laboratório":1,"PCP":1},
-  "2026-01":{"Rotulagem":11,"Produção":28,"Almoxarifado":6,"Gravação":1,"CQ":20,"Estoque":2,"Laboratório":2,"PCP":2},
-  "2026-02":{"Estoque":4,"Rotulagem":9,"CQ":11,"Almoxarifado":5,"Produção":16,"Gravação":1,"Laboratório":1,"PCP":1},
-  "2026-03":{"CQ":22,"Gravação":17,"PCP":2,"Estoque":2,"Projeto":3,"Rotulagem":3,"Produção":3,"Almoxarifado":1},
-  "2026-04":{"CQ":11,"Projeto":2,"PCP":7,"Rotulagem":3,"Produção":8,"Estoque":4,"Almoxarifado":2},
-  "2026-05":{"Produção":1,"PCP":1,"Estoque":1}
-};
-
-const MOTIVOS = {
-  "Sem preenchimento":1286,"Qtd. não confere":488,"Sem desenho":414,
-  "Cota divergente":226,"Sem assinatura":193,"Tolerância/CNC":158,
-  "Sem visto":140,"Sem cód. barras":21,"Sem certificado":2
-};
-
-// ── Estado ──
-let activeYear  = "all";
-let activeMonth = "";   // "2025-04" ou vazio
-
-// ── Helpers ──
-Chart.defaults.color = "#768390";
-Chart.defaults.font.family = "'DM Sans',sans-serif";
-Chart.defaults.font.size = 12;
-
-const CLR = { accent:"#e63946",a2:"#ff6b35",ok:"#2ec4b6",warn:"#f4a261",blue:"#58a6ff",grid:"#21293a" };
-const PALETTE = ["#e63946","#ff6b35","#f4a261","#2ec4b6","#58a6ff","#a371f7","#e9c46a","#06d6a0","#ef476f","#118ab2","#ffd166","#8ecae6","#c77dff","#4cc9f0"];
-
-function pctCol(p){ return p<=15?CLR.ok:p<=25?CLR.warn:CLR.accent; }
-function fmtM(m){
-  const [y,mo]=m.split("-");
-  return ["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"][+mo-1]+"/"+y.slice(2);
-}
-function filtByYear(year){ return year==="all"?RAW:RAW.filter(d=>d.m.startsWith(year)); }
-
-// ── Popula select de meses ──
-function populateMonthSelect(year){
-  const sel = document.getElementById("month-select");
-  const data = filtByYear(year).slice().reverse();
-  sel.innerHTML = '<option value="">— Selecionar mês —</option>';
-  data.forEach(d=>{
-    const opt = document.createElement("option");
-    opt.value = d.m;
-    opt.textContent = fmtM(d.m);
-    if(d.m === activeMonth) opt.selected = true;
-    sel.appendChild(opt);
-  });
-  // Se mês ativo não está no novo filtro, limpa
-  if(activeMonth && !data.find(d=>d.m===activeMonth)){
-    activeMonth = "";
-  }
-  updateMonthUI();
-}
-
-function updateMonthUI(){
-  const sel = document.getElementById("month-select");
-  const btn = document.getElementById("clear-month-btn");
-  const pill= document.getElementById("period-pill");
-  const lbl = document.getElementById("period-label");
-
-  if(activeMonth){
-    sel.classList.add("active-month");
-    btn.classList.add("visible");
-    pill.classList.add("month-mode");
-    lbl.textContent = fmtM(activeMonth);
-  } else {
-    sel.classList.remove("active-month");
-    btn.classList.remove("visible");
-    pill.classList.remove("month-mode");
-    lbl.textContent = activeYear==="all"?"Todos os períodos":"Ano "+activeYear;
-  }
-}
-
-// ── KPIs ──
-function kpis(){
-  let data, label;
-  if(activeMonth){
-    data = RAW.filter(d=>d.m===activeMonth);
-    label = fmtM(activeMonth);
-  } else {
-    data = filtByYear(activeYear);
-    label = activeYear==="all"?"Out/2022 — Mai/2026":"Ano "+activeYear;
-  }
-
-  const totOps = data.reduce((s,d)=>s+d.T,0);
-  const totNC  = data.reduce((s,d)=>s+d.NC,0);
-  const totC   = data.reduce((s,d)=>s+d.C,0);
-  const totFechadas = totC + totNC;
-  const taxa = totFechadas ? (totNC / totFechadas * 100).toFixed(1) : "0.0";
-  const totPendentes = Math.max(totOps - totC - totNC, 0);
-
-  // Comparativo
-  let prevD=null, prevLabel="";
-  if(activeMonth){
-    const idx = RAW.findIndex(d=>d.m===activeMonth);
-    if(idx>0){ prevD=RAW[idx-1]; prevLabel=fmtM(prevD.m); }
-  }
-  const prevTaxa = prevD&&prevD.T?(prevD.NC/prevD.T*100).toFixed(1):null;
-
-  // Setor top
-  let sMap;
-  if(activeMonth){
-    sMap = SETOR_MENSAL[activeMonth]||{};
-  } else if(activeYear==="all"){
-    sMap = SETOR_NC;
-  } else {
-    sMap = {};
-    Object.entries(SETOR_ANUAL).forEach(([s,y])=>{ sMap[s]=y[+activeYear]||0; });
-  }
-  const top = Object.entries(sMap).sort((a,b)=>b[1]-a[1])[0]||["—",0];
-
-  let deltaHtml = "";
-  if(prevTaxa!==null){
-    const diff=(+taxa-+prevTaxa).toFixed(1);
-    const cls=+diff>0?"d-up":+diff<0?"d-dn":"d-neu";
-    const sym=+diff>0?"▲":+diff<0?"▼":"—";
-    deltaHtml=`<div class="kpi-delta"><span class="${cls}">${sym} ${Math.abs(diff)}% vs ${prevLabel}</span></div>`;
-  }
-
-  document.getElementById("kpi-grid").innerHTML=`
-    <div class="kpi-card" style="--kpi-color:${CLR.blue}">
-      <div class="kpi-label">Total de OPs</div>
-      <div class="kpi-value">${totOps.toLocaleString("pt-BR")}</div>
-      <div class="kpi-sub">${label}</div>
-    </div>
-    <div class="kpi-card" style="--kpi-color:${CLR.ok}">
-      <div class="kpi-label">OPs Fechadas Conformes</div>
-      <div class="kpi-value">${totC.toLocaleString("pt-BR")}</div>
-      <div class="kpi-sub">${totOps?(totC/totOps*100).toFixed(1):0}% do total de OPs</div>
-    </div>
-    <div class="kpi-card" style="--kpi-color:${CLR.accent}">
-      <div class="kpi-label">Ocorrências de NC por setor</div>
-      <div class="kpi-value">${totNC.toLocaleString("pt-BR")}</div>
-      <div class="kpi-sub">Uma OP pode gerar mais de uma ocorrência</div>
-    </div>
-    <div class="kpi-card" style="--kpi-color:${CLR.warn}">
-    <div class="kpi-label">OPs Pendentes de Fechamento</div>
-    <div class="kpi-value">${totPendentes.toLocaleString("pt-BR")}</div>
-    <div class="kpi-sub">OPs que passaram pelo SGQ, mas ainda não foram finalizadas</div>
-    </div>
-    <div class="kpi-card" style="--kpi-color:${pctCol(+taxa)}">
-      <div class="kpi-label">Taxa de NC</div>
-      <div class="kpi-value">${taxa}%</div>
-      <div class="kpi-sub">Sobre OPs fechadas no período</div>
-      ${deltaHtml}
-      <span class="kpi-badge ${+taxa<=20?"bg":+taxa<=30?"bw":"bb"}">
-        ${+taxa<=20?"▼ Controlado":+taxa<=30?"◆ Atenção":"▲ Crítico"}
-      </span>
-    </div>
-    <div class="kpi-card" style="--kpi-color:${PALETTE[0]}">
-      <div class="kpi-label">Setor com Mais NCs</div>
-      <div class="kpi-value" style="font-size:20px;padding-top:8px">${top[0]}</div>
-      <div class="kpi-sub">${top[1].toLocaleString("pt-BR")} ocorrências no período</div>
-    </div>
-  `;
-}
-
-// ── Charts ──
-let charts={};
-function destroyAll(){ Object.values(charts).forEach(c=>c?.destroy()); charts={}; }
-
-function renderGeneralCharts(){
-  const monthly = filtByYear(activeYear);
-  const labels  = monthly.map(d=>fmtM(d.m));
-  const rateArr = monthly.map(d=>d.T?+(d.NC/d.T*100).toFixed(1):0);
-
-  charts.trend = new Chart(document.getElementById("chartTrend"),{
-    data:{
-      labels,
-      datasets:[
-        {type:"bar",label:"Conformes",data:monthly.map(d=>d.C),
-          backgroundColor:"rgba(46,196,182,0.5)",stack:"s",order:2,
-          borderRadius:{topLeft:0,topRight:0,bottomLeft:3,bottomRight:3}},
-        {type:"bar",label:"NCs por Setor",data:monthly.map(d=>d.NC),
-          backgroundColor:"rgba(230,57,70,0.72)",stack:"s",order:2,
-          borderRadius:{topLeft:3,topRight:3,bottomLeft:0,bottomRight:0}},
-        {type:"line",label:"Taxa NC %",data:rateArr,
-          borderColor:CLR.warn,backgroundColor:"rgba(244,162,97,0.1)",
-          pointBackgroundColor:rateArr.map(r=>pctCol(r)),
-          pointRadius:4,pointHoverRadius:6,borderWidth:2.5,
-          tension:0.35,fill:false,yAxisID:"yPct",order:1}
-      ]
-    },
-    options:{
-      responsive:true,
-      interaction:{mode:"index",intersect:false},
-      plugins:{
-        legend:{position:"top",labels:{usePointStyle:true,padding:20}},
-        tooltip:{backgroundColor:"#161b22",borderColor:"#21293a",borderWidth:1}
-      },
-      scales:{
-        x:{grid:{color:CLR.grid},ticks:{maxRotation:45,minRotation:30,font:{size:11}}},
-        y:{stacked:true,grid:{color:CLR.grid},title:{display:true,text:"Qtd.",color:CLR.blue}},
-        yPct:{position:"right",grid:{drawOnChartArea:false},
-          title:{display:true,text:"Taxa NC %",color:CLR.warn},
-          ticks:{callback:v=>v+"%"}}
-      }
+    function normalizeText(value) {
+      return String(value || "")
+        .trim()
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "");
     }
-  });
 
-  const sd = activeYear==="all" ? SETOR_NC : (()=>{
-    const o={};
-    Object.entries(SETOR_ANUAL).forEach(([s,y])=>{ o[s]=y[+activeYear]||0; });
-    return Object.fromEntries(Object.entries(o).sort((a,b)=>b[1]-a[1]));
-  })();
-  const sL=Object.keys(sd), sV=Object.values(sd);
-  charts.setor = new Chart(document.getElementById("chartSetor"),{
-    type:"bar",
-    data:{labels:sL,datasets:[{label:"NCs",data:sV,
-      backgroundColor:sL.map((_,i)=>PALETTE[i%PALETTE.length]+"cc"),
-      borderColor:sL.map((_,i)=>PALETTE[i%PALETTE.length]),
-      borderWidth:1,borderRadius:4}]},
-    options:{
-      indexAxis:"y",responsive:true,
-      plugins:{legend:{display:false},
-        tooltip:{callbacks:{label:ctx=>{
-          const tot=sV.reduce((s,v)=>s+v,0);
-          return ` ${ctx.parsed.x} NCs (${(ctx.parsed.x/tot*100).toFixed(1)}%)`;
-        }}}
-      },
-      scales:{x:{grid:{color:CLR.grid}},y:{grid:{display:false}}}
+    function formatNumber(value) {
+      return Number(value || 0).toLocaleString("pt-BR");
     }
-  });
 
-  const anos = activeYear==="all"?[2022,2023,2024,2025,2026]:[+activeYear];
-  charts.setorAnual = new Chart(document.getElementById("chartSetorAnual"),{
-    type:"bar",
-    data:{
-      labels:anos.map(String),
-      datasets:Object.keys(SETOR_ANUAL).map((s,i)=>({
-        label:s,
-        data:anos.map(a=>SETOR_ANUAL[s][a]||0),
-        backgroundColor:PALETTE[i]+"cc",borderColor:PALETTE[i],borderWidth:1,borderRadius:3
-      }))
-    },
-    options:{
-      responsive:true,
-      plugins:{legend:{position:"right",labels:{usePointStyle:true,padding:12,font:{size:11}}}},
-      scales:{x:{grid:{color:CLR.grid}},y:{grid:{color:CLR.grid}}}
+    function formatPercent(value) {
+      return `${Number(value || 0).toFixed(1).replace(".", ",")}%`;
     }
-  });
 
-  const af = activeYear==="all"?ANNUAL:ANNUAL.filter(a=>String(a.ano)===activeYear);
-  charts.anual = new Chart(document.getElementById("chartAnual"),{
-    type:"bar",
-    data:{
-      labels:af.map(a=>String(a.ano)),
-      datasets:[
-        {label:"Conformes",data:af.map(a=>a.C),backgroundColor:"rgba(46,196,182,0.6)",borderColor:CLR.ok,borderWidth:1,borderRadius:4,stack:"a"},
-        {label:"NCs por Setor",data:af.map(a=>a.NC),backgroundColor:"rgba(230,57,70,0.6)",borderColor:CLR.accent,borderWidth:1,borderRadius:4,stack:"a"}
-      ]
-    },
-    options:{
-      responsive:true,
-      plugins:{
-        legend:{position:"top",labels:{usePointStyle:true,padding:16}},
-        tooltip:{callbacks:{afterBody:items=>{
-          const d=af[items[0].dataIndex];
-          return[`Taxa NC: ${(d.NC/d.T*100).toFixed(1)}%`];
-        }}}
-      },
-      scales:{x:{stacked:true,grid:{color:CLR.grid}},y:{stacked:true,grid:{color:CLR.grid}}}
-    }
-  });
+    function parseCSVLine(line, delimiter) {
+      const result = [];
+      let current = "";
+      let insideQuotes = false;
 
-  const mL=Object.keys(MOTIVOS),mV=Object.values(MOTIVOS);
-  charts.motivos = new Chart(document.getElementById("chartMotivos"),{
-    type:"doughnut",
-    data:{labels:mL,datasets:[{data:mV,
-      backgroundColor:PALETTE.slice(0,mL.length).map(c=>c+"dd"),
-      borderColor:PALETTE.slice(0,mL.length),borderWidth:2,hoverOffset:8}]},
-    options:{
-      responsive:true,cutout:"60%",
-      plugins:{
-        legend:{position:"right",labels:{usePointStyle:true,padding:10,font:{size:11}}},
-        tooltip:{callbacks:{label:ctx=>{
-          const tot=ctx.dataset.data.reduce((s,v)=>s+v,0);
-          return ` ${ctx.label}: ${ctx.parsed.toLocaleString("pt-BR")} (${(ctx.parsed/tot*100).toFixed(1)}%)`;
-        }}}
-      }
-    }
-  });
-}
+      for (let i = 0; i < line.length; i++) {
+        const char = line[i];
+        const nextChar = line[i + 1];
 
-function renderMonthCharts(){
-  const sm  = SETOR_MENSAL[activeMonth]||{};
-  const idx = RAW.findIndex(d=>d.m===activeMonth);
-  const prev= idx>0?RAW[idx-1]:null;
-  const smp = prev?(SETOR_MENSAL[prev.m]||{}):null;
-
-  const d   = RAW.find(d=>d.m===activeMonth)||{T:0,NC:0,C:0};
-  const taxa= d.T?(d.NC/d.T*100).toFixed(1):"0.0";
-
-  // Header do mês
-  let prevCompare="";
-  if(prev){
-    const pTaxa=(prev.NC/prev.T*100).toFixed(1);
-    const diff=(+taxa - +pTaxa).toFixed(1);
-    const cls=+diff>0?"d-up":+diff<0?"d-dn":"d-neu";
-    const sym=+diff>0?"▲":+diff<0?"▼":"—";
-    prevCompare=`<div style="font-size:12px;margin-top:4px;color:var(--muted)">vs ${fmtM(prev.m)}: <span class="delta ${cls}">${sym} ${Math.abs(diff)}%</span></div>`;
-  }
-  document.getElementById("month-header-card").innerHTML=`
-    <div>
-      <div class="month-header-title">${fmtM(activeMonth)}</div>
-      <div class="month-header-sub">Visão detalhada do mês selecionado</div>
-    </div>
-    <div class="month-stats">
-      <div class="month-stat">
-        <div class="month-stat-val" style="color:${CLR.blue}">${d.T}</div>
-        <div class="month-stat-lbl">Total OPs</div>
-      </div>
-      <div class="month-stat">
-        <div class="month-stat-val" style="color:${CLR.ok}">${d.C}</div>
-        <div class="month-stat-lbl">Conformes</div>
-      </div>
-      <div class="month-stat">
-        <div class="month-stat-val" style="color:${CLR.accent}">${d.NC}</div>
-        <div class="month-stat-lbl">NCs (Setores)</div>
-      </div>
-      <div class="month-stat">
-        <div class="month-stat-val" style="color:${pctCol(+taxa)}">${taxa}%</div>
-        <div class="month-stat-lbl">Taxa NC</div>
-        ${prevCompare}
-      </div>
-    </div>
-  `;
-
-  // Gráfico setores do mês
-  const sorted = Object.entries(sm).sort((a,b)=>b[1]-a[1]).filter(([,v])=>v>0);
-  const sL = sorted.map(s=>s[0]), sV = sorted.map(s=>s[1]);
-  charts.monthSetor = new Chart(document.getElementById("chartMonthSetor"),{
-    type:"bar",
-    data:{labels:sL,datasets:[{label:"NCs",data:sV,
-      backgroundColor:sL.map((_,i)=>PALETTE[i%PALETTE.length]+"cc"),
-      borderColor:sL.map((_,i)=>PALETTE[i%PALETTE.length]),
-      borderWidth:1,borderRadius:4}]},
-    options:{
-      indexAxis:"y",responsive:true,
-      plugins:{legend:{display:false},
-        tooltip:{callbacks:{label:ctx=>{
-          const tot=sV.reduce((s,v)=>s+v,0);
-          return ` ${ctx.parsed.x} NCs (${(ctx.parsed.x/tot*100).toFixed(1)}%)`;
-        }}}
-      },
-      scales:{x:{grid:{color:CLR.grid}},y:{grid:{display:false}}}
-    }
-  });
-
-  // Comparativo com mês anterior
-  if(smp){
-    const allSetores=[...new Set([...Object.keys(sm),...Object.keys(smp)])].sort((a,b)=>(sm[b]||0)-(sm[a]||0));
-    charts.monthComp = new Chart(document.getElementById("chartMonthComp"),{
-      type:"bar",
-      data:{
-        labels:allSetores,
-        datasets:[
-          {label:fmtM(activeMonth),data:allSetores.map(s=>sm[s]||0),
-            backgroundColor:"rgba(230,57,70,0.7)",borderColor:CLR.accent,borderWidth:1,borderRadius:3},
-          {label:fmtM(prev.m),data:allSetores.map(s=>smp[s]||0),
-            backgroundColor:"rgba(88,166,255,0.5)",borderColor:CLR.blue,borderWidth:1,borderRadius:3}
-        ]
-      },
-      options:{
-        responsive:true,
-        plugins:{legend:{position:"top",labels:{usePointStyle:true,padding:16}}},
-        scales:{
-          x:{grid:{color:CLR.grid},ticks:{font:{size:10}}},
-          y:{grid:{color:CLR.grid}}
+        if (char === '"' && insideQuotes && nextChar === '"') {
+          current += '"';
+          i++;
+        } else if (char === '"') {
+          insideQuotes = !insideQuotes;
+        } else if (char === delimiter && !insideQuotes) {
+          result.push(current.trim());
+          current = "";
+        } else {
+          current += char;
         }
       }
-    });
-  } else {
-    document.getElementById("chartMonthComp").parentElement.querySelector(".chart-desc").textContent="Sem mês anterior disponível para comparação.";
-  }
-}
 
-// ── Tabelas ──
-let monthlyExpanded = false;
-const MONTHLY_LIMIT = 3;
-
-function tblMonthly(){
-  let data;
-  if(activeMonth){
-    data = RAW.filter(d=>d.m===activeMonth);
-  } else {
-    data = filtByYear(activeYear).slice().reverse();
-  }
-  
-  const totalCount = data.length;
-  const displayData = monthlyExpanded ? data : data.slice(0, MONTHLY_LIMIT);
-  const hasMore = totalCount > MONTHLY_LIMIT;
-  
-  document.getElementById("tbl-monthly-count").textContent = totalCount+" "+(totalCount===1?"mês":"meses");
-  
-  // Mostrar/ocultar botão expandir
-  const footer = document.getElementById("monthly-table-footer");
-  const expandBtn = document.getElementById("expand-monthly-btn");
-  const expandText = document.getElementById("expand-monthly-text");
-  
-  if(hasMore && !activeMonth){
-    footer.style.display = "block";
-    expandText.textContent = monthlyExpanded ? "Ver menos" : `Ver mais ${totalCount - MONTHLY_LIMIT} meses`;
-    expandBtn.classList.toggle("expanded", monthlyExpanded);
-  } else {
-    footer.style.display = "none";
-  }
-  
-  const allData = RAW.slice().reverse(); // para delta
-  document.getElementById("tbody-monthly").innerHTML = displayData.map((d)=>{
-    const fechadas = r.C + r.NC;
-    const taxa = fechadas ? (r.NC / fechadas * 100).toFixed(1) : "0.0";
-    const col  = pctCol(+taxa);
-    const idx  = allData.findIndex(x=>x.m===d.m);
-    const prev = allData[idx+1];
-    const pRate= prev&&prev.T?(prev.NC/prev.T*100):null;
-    let delta="";
-    if(pRate!==null){
-      const diff=(+taxa-pRate).toFixed(1);
-      const cls=+diff>0?"d-up":+diff<0?"d-dn":"d-neu";
-      const sym=+diff>0?"▲":+diff<0?"▼":"—";
-      delta=`<span class="delta ${cls}">${sym} ${Math.abs(diff)}%</span>`;
+      result.push(current.trim());
+      return result;
     }
-    return `<tr>
-      <td style="font-weight:600">${fmtM(d.m)}</td>
-      <td>${d.T.toLocaleString("pt-BR")}</td>
-      <td><span class="chip-c">${d.C.toLocaleString("pt-BR")}</span></td>
-      <td><span class="chip-nc">${d.NC.toLocaleString("pt-BR")}</span></td>
-      <td><div class="bar-wrap">
-        <div class="bar-bg"><div class="bar-fill" style="width:${Math.min(+taxa,100)}%;background:${col}"></div></div>
-        <span class="bar-lbl" style="color:${col}">${taxa}%</span>
-      </div></td>
-      <td>${delta}</td>
-    </tr>`;
-  }).join("");
-}
 
-let setorExpanded = false;
-const SETOR_LIMIT = 5;
+    function detectDelimiter(firstLine) {
+      const candidates = [",", ";", "\t"];
+      let bestDelimiter = ",";
+      let bestCount = 0;
 
-function tblSetor(){
-  let sd;
-  if(activeMonth){
-    sd = SETOR_MENSAL[activeMonth]||{};
-  } else if(activeYear==="all"){
-    sd = SETOR_NC;
-  } else {
-    sd={};
-    Object.entries(SETOR_ANUAL).forEach(([s,y])=>{ sd[s]=y[+activeYear]||0; });
-  }
-  const sorted=Object.entries(sd).sort((a,b)=>b[1]-a[1]).filter(([,v])=>v>0);
-  const total =sorted.reduce((s,[,v])=>s+v,0);
-  
-  const totalCount = sorted.length;
-  const displayData = setorExpanded ? sorted : sorted.slice(0, SETOR_LIMIT);
-  const hasMore = totalCount > SETOR_LIMIT;
-  
-  document.getElementById("tbl-setor-count").textContent=totalCount+" setores";
-  
-  // Mostrar/ocultar botão expandir
-  const footer = document.getElementById("setor-table-footer");
-  const expandBtn = document.getElementById("expand-setor-btn");
-  const expandText = document.getElementById("expand-setor-text");
-  
-  if(hasMore){
-    footer.style.display = "block";
-    expandText.textContent = setorExpanded ? "Ver menos" : `Ver mais ${totalCount - SETOR_LIMIT} setores`;
-    expandBtn.classList.toggle("expanded", setorExpanded);
-  } else {
-    footer.style.display = "none";
-  }
-  
-  const medals=["🥇","🥈","🥉"];
-  document.getElementById("tbody-setor").innerHTML=displayData.map(([s,nc],i)=>{
-    const pct=(nc/total*100).toFixed(1);
-    const col=PALETTE[i%PALETTE.length];
-    return `<tr>
-      <td style="font-weight:700;font-size:16px">${i<3?medals[i]:"#"+(i+1)}</td>
-      <td style="font-weight:600">${s}</td>
-      <td><span class="chip-nc">${nc.toLocaleString("pt-BR")}</span></td>
-      <td><div class="bar-wrap">
-        <div class="bar-bg"><div class="bar-fill" style="width:${pct}%;background:${col}"></div></div>
-        <span class="bar-lbl" style="color:${col}">${pct}%</span>
-      </div></td>
-    </tr>`;
-  }).join("");
-}
+      candidates.forEach(delimiter => {
+        const count = parseCSVLine(firstLine, delimiter).length;
+        if (count > bestCount) {
+          bestCount = count;
+          bestDelimiter = delimiter;
+        }
+      });
 
-function getFilteredMonthlyData(){
-  if(activeMonth){
-    return RAW.filter(d => d.m === activeMonth);
-  }
+      return bestDelimiter;
+    }
 
-  return filtByYear(activeYear).slice().reverse();
-}
+    function parseCSV(csvText) {
+      const lines = csvText
+        .split(/\r?\n/)
+        .map(line => line.trim())
+        .filter(Boolean);
 
-function exportMonthlyCSV(){
-  const data = getFilteredMonthlyData();
+      if (lines.length < 2) {
+        return [];
+      }
 
-  if(!data.length){
-    alert("Não há dados para exportar neste filtro.");
-    return;
-  }
+      const delimiter = detectDelimiter(lines[0]);
+      const headers = parseCSVLine(lines[0], delimiter).map(normalizeText);
 
-  const rows = [
-    ["Mês", "Total de OPs", "OPs Conformes", "OPs com NC", "Taxa NC %"],
-    ...data.map(d => {
-      const taxa = d.T ? (d.NC / d.T * 100).toFixed(1).replace(".", ",") : "0,0";
+      return lines.slice(1).map(line => {
+        const values = parseCSVLine(line, delimiter);
+        const row = {};
 
-      return [
-        fmtM(d.m),
-        d.T,
-        d.C,
-        d.NC,
-        taxa
+        headers.forEach((header, index) => {
+          row[header] = values[index] || "";
+        });
+
+        return row;
+      });
+    }
+
+    function getCell(row, headerNames) {
+      for (const header of headerNames) {
+        const key = normalizeText(header);
+        if (row[key] !== undefined) {
+          return row[key];
+        }
+      }
+
+      return "";
+    }
+
+    function getMonthKey(value) {
+      const text = String(value || "").trim();
+
+      if (!text) return "";
+
+      const dateOnly = text.split(" ")[0];
+
+      const brMatch = dateOnly.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/);
+      if (brMatch) {
+        const month = brMatch[2].padStart(2, "0");
+        let year = brMatch[3];
+
+        if (year.length === 2) {
+          year = `20${year}`;
+        }
+
+        return `${year}-${month}`;
+      }
+
+      const isoMatch = dateOnly.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+      if (isoMatch) {
+        return `${isoMatch[1]}-${isoMatch[2].padStart(2, "0")}`;
+      }
+
+      const parsed = new Date(text);
+      if (!Number.isNaN(parsed.getTime())) {
+        const year = parsed.getFullYear();
+        const month = String(parsed.getMonth() + 1).padStart(2, "0");
+        return `${year}-${month}`;
+      }
+
+      return "";
+    }
+
+    function formatMonth(monthKey) {
+      const [year, month] = monthKey.split("-");
+      const names = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
+      return `${names[Number(month) - 1]}/${String(year).slice(2)}`;
+    }
+
+    function isFinalizada(value) {
+      const text = normalizeText(value);
+      return text === "x" || text === "sim" || text === "s" || text === "finalizada" || text === "finalizado";
+    }
+
+    function isNaoConforme(value) {
+      const text = normalizeText(value);
+
+      return (
+        text === "nc" ||
+        text.includes("nao conforme") ||
+        text.includes("nao-conforme") ||
+        text.includes("nao conformidade") ||
+        text.includes("nao-conformidade") ||
+        text.includes("não conforme")
+      );
+    }
+
+    function isConforme(value) {
+      const text = normalizeText(value);
+
+      if (isNaoConforme(value)) {
+        return false;
+      }
+
+      return text === "c" || text === "conforme" || text.includes("conforme");
+    }
+
+    function splitSectors(value) {
+      const text = String(value || "").trim();
+
+      if (!text) return [];
+
+      return text
+        .split(/[,;/|]+|\s+e\s+/i)
+        .map(item => item.trim())
+        .filter(Boolean)
+        .map(normalizeSectorName);
+    }
+
+    function normalizeSectorName(value) {
+      const original = String(value || "").trim();
+      const text = normalizeText(original);
+
+      if (text.includes("pcp")) return "PCP";
+      if (text.includes("cq") || text.includes("controle de qualidade")) return "CQ";
+      if (text.includes("rotul")) return "Rotulagem";
+      if (text.includes("produ")) return "Produção";
+      if (text.includes("almox")) return "Almoxarifado";
+      if (text.includes("projeto")) return "Projeto";
+      if (text.includes("estoque")) return "Estoque";
+      if (text.includes("engenharia")) return "Engenharia";
+      if (text.includes("grav")) return "Gravação";
+      if (text.includes("labor")) return "Laboratório";
+      if (text.includes("usin")) return "Usinagem";
+
+      return original || "Não informado";
+    }
+
+    function getFilteredRows() {
+      const year = document.getElementById("year-filter").value;
+      const month = document.getElementById("month-filter").value;
+
+      return allRows.filter(row => {
+        if (year !== "all" && !row.monthKey.startsWith(year)) {
+          return false;
+        }
+
+        if (month !== "all" && row.monthKey !== month) {
+          return false;
+        }
+
+        return true;
+      });
+    }
+
+    function buildRows(rawRows) {
+      return rawRows
+        .map(row => {
+          const dataFechamento = getCell(row, ["Data de fechamento"]);
+          const numeroOP = getCell(row, ["Número da OP", "Numero da OP"]);
+          const situacao = getCell(row, ["Situação do fechamento", "Situacao do fechamento"]);
+          const observacoes = getCell(row, ["Observações encontradas", "Observacoes encontradas"]);
+          const setores = getCell(row, ["Setor (es)", "Setor(es)", "Setores"]);
+          const colaboradores = getCell(row, ["Colaborador(es) envolvido(s)", "Colaboradores envolvidos"]);
+          const finalizadas = getCell(row, ["Finalizadas", "Finalizada"]);
+
+          const monthKey = getMonthKey(dataFechamento);
+
+          return {
+            dataFechamento,
+            numeroOP,
+            situacao,
+            observacoes,
+            setores,
+            colaboradores,
+            finalizadas,
+            monthKey,
+            isFinalizada: isFinalizada(finalizadas),
+            isNC: isNaoConforme(situacao),
+            isC: isConforme(situacao),
+            sectorList: splitSectors(setores),
+          };
+        })
+        .filter(row => row.monthKey);
+    }
+
+    function buildMonthlyData(rows) {
+      const map = {};
+
+      rows.forEach(row => {
+        if (!map[row.monthKey]) {
+          map[row.monthKey] = {
+            monthKey: row.monthKey,
+            total: 0,
+            conformes: 0,
+            nc: 0,
+            pendentes: 0,
+            ncSetores: 0,
+          };
+        }
+
+        map[row.monthKey].total += 1;
+
+        if (!row.isFinalizada) {
+          map[row.monthKey].pendentes += 1;
+          return;
+        }
+
+        if (row.isNC) {
+          map[row.monthKey].nc += 1;
+          map[row.monthKey].ncSetores += Math.max(row.sectorList.length, 1);
+        } else if (row.isC) {
+          map[row.monthKey].conformes += 1;
+        }
+      });
+
+      return Object.values(map).sort((a, b) => a.monthKey.localeCompare(b.monthKey));
+    }
+
+    function getSummary(rows) {
+      const total = rows.length;
+      const conformes = rows.filter(row => row.isFinalizada && row.isC).length;
+      const nc = rows.filter(row => row.isFinalizada && row.isNC).length;
+      const pendentes = rows.filter(row => !row.isFinalizada).length;
+      const finalizadas = conformes + nc;
+      const taxa = finalizadas > 0 ? (nc / finalizadas) * 100 : 0;
+
+      return {
+        total,
+        conformes,
+        nc,
+        pendentes,
+        finalizadas,
+        taxa,
+      };
+    }
+
+    function buildSectorRanking(rows) {
+      const map = {};
+
+      rows
+        .filter(row => row.isFinalizada && row.isNC)
+        .forEach(row => {
+          const sectors = row.sectorList.length ? row.sectorList : ["Não informado"];
+
+          sectors.forEach(sector => {
+            map[sector] = (map[sector] || 0) + 1;
+          });
+        });
+
+      return Object.entries(map)
+        .map(([sector, count]) => ({ sector, count }))
+        .sort((a, b) => b.count - a.count);
+    }
+
+    function buildReasonRanking(rows) {
+      const map = {};
+
+      rows
+        .filter(row => row.isFinalizada && row.isNC && row.observacoes)
+        .forEach(row => {
+          const reason = String(row.observacoes).trim();
+
+          if (!reason) return;
+
+          const shortReason = reason.length > 80 ? `${reason.slice(0, 80)}...` : reason;
+          map[shortReason] = (map[shortReason] || 0) + 1;
+        });
+
+      return Object.entries(map)
+        .map(([reason, count]) => ({ reason, count }))
+        .sort((a, b) => b.count - a.count)
+        .slice(0, 10);
+    }
+
+    function updateFilters() {
+      const yearSelect = document.getElementById("year-filter");
+      const monthSelect = document.getElementById("month-filter");
+
+      const years = [...new Set(allRows.map(row => row.monthKey.slice(0, 4)))].sort();
+      const months = [...new Set(allRows.map(row => row.monthKey))].sort();
+
+      yearSelect.innerHTML = `<option value="all">Todos</option>` + years.map(year => {
+        return `<option value="${year}">${year}</option>`;
+      }).join("");
+
+      monthSelect.innerHTML = `<option value="all">Todos</option>` + months.map(month => {
+        return `<option value="${month}">${formatMonth(month)}</option>`;
+      }).join("");
+    }
+
+    function updateKPIs(summary) {
+      document.getElementById("kpi-total").textContent = formatNumber(summary.total);
+      document.getElementById("kpi-conformes").textContent = formatNumber(summary.conformes);
+      document.getElementById("kpi-nc").textContent = formatNumber(summary.nc);
+      document.getElementById("kpi-pendentes").textContent = formatNumber(summary.pendentes);
+      document.getElementById("kpi-taxa").textContent = formatPercent(summary.taxa);
+    }
+
+    function renderMonthlyChart(data) {
+      const target = document.getElementById("monthly-chart");
+
+      if (!data.length) {
+        target.innerHTML = `<div class="empty">Sem dados mensais para exibir.</div>`;
+        return;
+      }
+
+      const max = Math.max(...data.map(item => item.total), 1);
+
+      target.innerHTML = data.slice(-12).map(item => {
+        const totalWidth = (item.total / max) * 100;
+        const conformesWidth = (item.conformes / max) * 100;
+        const ncWidth = (item.nc / max) * 100;
+        const pendentesWidth = (item.pendentes / max) * 100;
+
+        return `
+          <div style="margin-bottom: 14px;">
+            <div class="bar-row">
+              <div>${formatMonth(item.monthKey)}</div>
+              <div>
+                <div class="bar-bg">
+                  <div class="bar-fill" style="width:${totalWidth}%;"></div>
+                </div>
+              </div>
+              <div>${formatNumber(item.total)}</div>
+            </div>
+
+            <div style="display:grid; grid-template-columns:90px 1fr 70px; gap:12px; align-items:center; margin-top:4px;">
+              <div></div>
+              <div style="display:flex; gap:4px;">
+                <div class="bar-fill green" style="width:${conformesWidth}%; height:6px;"></div>
+                <div class="bar-fill red" style="width:${ncWidth}%; height:6px;"></div>
+                <div class="bar-fill orange" style="width:${pendentesWidth}%; height:6px;"></div>
+              </div>
+              <div style="font-size:11px; color:var(--muted);">C/NC/P</div>
+            </div>
+          </div>
+        `;
+      }).join("");
+    }
+
+    function renderSectorRanking(rows) {
+      const target = document.getElementById("sector-ranking");
+      const ranking = buildSectorRanking(rows);
+
+      if (!ranking.length) {
+        target.innerHTML = `<div class="empty">Sem NCs por setor neste filtro.</div>`;
+        return;
+      }
+
+      const max = Math.max(...ranking.map(item => item.count), 1);
+
+      target.innerHTML = ranking.slice(0, 10).map(item => {
+        const width = (item.count / max) * 100;
+
+        return `
+          <div class="bar-row">
+            <div>${item.sector}</div>
+            <div class="bar-bg">
+              <div class="bar-fill red" style="width:${width}%;"></div>
+            </div>
+            <div>${formatNumber(item.count)}</div>
+          </div>
+        `;
+      }).join("");
+    }
+
+    function renderReasonRanking(rows) {
+      const target = document.getElementById("reason-ranking");
+      const ranking = buildReasonRanking(rows);
+
+      if (!ranking.length) {
+        target.innerHTML = `<div class="empty">Sem motivos de NC neste filtro.</div>`;
+        return;
+      }
+
+      const max = Math.max(...ranking.map(item => item.count), 1);
+
+      target.innerHTML = ranking.map(item => {
+        const width = (item.count / max) * 100;
+
+        return `
+          <div style="margin-bottom: 12px;">
+            <div style="display:flex; justify-content:space-between; gap:12px; font-size:13px; margin-bottom:5px;">
+              <span>${item.reason}</span>
+              <strong>${item.count}</strong>
+            </div>
+            <div class="bar-bg">
+              <div class="bar-fill orange" style="width:${width}%;"></div>
+            </div>
+          </div>
+        `;
+      }).join("");
+    }
+
+    function renderMonthlyTable(data) {
+      const target = document.getElementById("monthly-table");
+
+      if (!data.length) {
+        target.innerHTML = `
+          <tr>
+            <td colspan="6">
+              <div class="empty">Sem dados para este filtro.</div>
+            </td>
+          </tr>
+        `;
+        return;
+      }
+
+      target.innerHTML = data.slice().reverse().map(item => {
+        const finalizadas = item.conformes + item.nc;
+        const taxa = finalizadas > 0 ? (item.nc / finalizadas) * 100 : 0;
+
+        return `
+          <tr>
+            <td><strong>${formatMonth(item.monthKey)}</strong></td>
+            <td>${formatNumber(item.total)}</td>
+            <td><span class="chip green">${formatNumber(item.conformes)}</span></td>
+            <td><span class="chip red">${formatNumber(item.nc)}</span></td>
+            <td><span class="chip orange">${formatNumber(item.pendentes)}</span></td>
+            <td><span class="chip blue">${formatPercent(taxa)}</span></td>
+          </tr>
+        `;
+      }).join("");
+    }
+
+    function renderDashboard() {
+      const filteredRows = getFilteredRows();
+      const summary = getSummary(filteredRows);
+      const filteredMonthlyData = buildMonthlyData(filteredRows);
+
+      updateKPIs(summary);
+      renderMonthlyChart(filteredMonthlyData);
+      renderSectorRanking(filteredRows);
+      renderReasonRanking(filteredRows);
+      renderMonthlyTable(filteredMonthlyData);
+    }
+
+    function exportMonthlyCSV() {
+      const filteredRows = getFilteredRows();
+      const data = buildMonthlyData(filteredRows);
+
+      if (!data.length) {
+        alert("Não há dados para exportar.");
+        return;
+      }
+
+      const rows = [
+        ["Mês", "Total de OPs", "OPs Conformes", "OPs com NC", "OPs Pendentes", "Taxa NC %"],
+        ...data.map(item => {
+          const finalizadas = item.conformes + item.nc;
+          const taxa = finalizadas > 0 ? (item.nc / finalizadas) * 100 : 0;
+
+          return [
+            formatMonth(item.monthKey),
+            item.total,
+            item.conformes,
+            item.nc,
+            item.pendentes,
+            formatPercent(taxa),
+          ];
+        }),
       ];
-    })
-  ];
 
-  const csvContent = rows
-    .map(row => row.map(value => `"${String(value).replace(/"/g, '""')}"`).join(";"))
-    .join("\n");
+      const csv = rows
+        .map(row => row.map(value => `"${String(value).replace(/"/g, '""')}"`).join(";"))
+        .join("\n");
 
-  const blob = new Blob(["\uFEFF" + csvContent], {
-    type: "text/csv;charset=utf-8;"
-  });
+      const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
 
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
+      link.href = url;
+      link.download = "resumo-mensal-dashboard-op-nc.csv";
+      link.click();
 
-  const periodo = activeMonth
-    ? activeMonth
-    : activeYear === "all"
-      ? "todos-periodos"
-      : activeYear;
+      URL.revokeObjectURL(url);
+    }
 
-  link.href = url;
-  link.download = `resumo-mensal-op-nc-${periodo}.csv`;
-  link.click();
+    async function loadData() {
+      const statusEl = document.getElementById("load-status");
+      const updateEl = document.getElementById("last-update");
 
-  URL.revokeObjectURL(url);
-}
-  
-// ── Render principal ──
-function renderAll(){
-  destroyAll();
-  kpis();
+      try {
+        statusEl.innerHTML = `Carregando dados da planilha...`;
 
-  if(activeMonth){
-    // Modo mês
-    document.getElementById("month-view").classList.add("visible");
-    document.getElementById("general-view").style.display="none";
-    renderMonthCharts();
-  } else {
-    // Modo geral / ano
-    document.getElementById("month-view").classList.remove("visible");
-    document.getElementById("general-view").style.display="";
-    renderGeneralCharts();
-  }
+        const response = await fetch(GOOGLE_SHEETS_CSV_URL, {
+          cache: "no-store",
+        });
 
-  tblMonthly();
-  tblSetor();
-}
+        if (!response.ok) {
+          throw new Error(`Erro HTTP ${response.status}`);
+        }
 
-// ── Eventos ──
-document.querySelectorAll(".filter-btn").forEach(btn=>{
-  btn.addEventListener("click",()=>{
-    document.querySelectorAll(".filter-btn").forEach(b=>b.classList.remove("active"));
-    btn.classList.add("active");
-    activeYear = btn.dataset.year;
-    activeMonth = "";
-    document.getElementById("month-select").value="";
-    populateMonthSelect(activeYear);
-    renderAll();
-  });
-});
+        const csvText = await response.text();
+        const rawRows = parseCSV(csvText);
 
-document.getElementById("month-select").addEventListener("change",function(){
-  activeMonth = this.value;
-  updateMonthUI();
-  renderAll();
-});
+        allRows = buildRows(rawRows);
+        monthlyData = buildMonthlyData(allRows);
 
-document.getElementById("clear-month-btn").addEventListener("click",()=>{
-  activeMonth="";
-  document.getElementById("month-select").value="";
-  updateMonthUI();
-  renderAll();
-});
-    
-document.getElementById("export-monthly-btn").addEventListener("click", exportMonthlyCSV);
-  
-document.getElementById("expand-monthly-btn").addEventListener("click",()=>{
-  monthlyExpanded = !monthlyExpanded;
-  tblMonthly();
-});
+        if (!allRows.length) {
+          statusEl.innerHTML = `<span class="status-error">Planilha carregada, mas sem dados válidos.</span>`;
+          return;
+        }
 
-document.getElementById("expand-setor-btn").addEventListener("click",()=>{
-  setorExpanded = !setorExpanded;
-  tblSetor();
-});
+        updateFilters();
+        renderDashboard();
 
-// Reset expand state when changing filters
-document.querySelectorAll(".filter-btn").forEach(btn=>{
-  btn.addEventListener("click",()=>{
-    monthlyExpanded = false;
-    setorExpanded = false;
-  });
-});
+        statusEl.innerHTML = `<span class="status-ok">Planilha carregada com sucesso.</span><br>${formatNumber(allRows.length)} registros encontrados.`;
+        updateEl.textContent = `Atualizado em ${new Date().toLocaleDateString("pt-BR")} às ${new Date().toLocaleTimeString("pt-BR", {
+          hour: "2-digit",
+          minute: "2-digit",
+        })}`;
+      } catch (error) {
+        console.error(error);
+        statusEl.innerHTML = `<span class="status-error">Erro ao carregar planilha.</span><br>${error.message}`;
+      }
+    }
 
-// ── Init ──
-document.getElementById("last-updated").innerHTML =
-  "Atualizado em: <strong>"+new Date().toLocaleDateString("pt-BR")+"</strong>";
+    document.getElementById("year-filter").addEventListener("change", renderDashboard);
+    document.getElementById("month-filter").addEventListener("change", renderDashboard);
 
-populateMonthSelect("all");
-renderAll();
-</script>
+    document.getElementById("clear-filters").addEventListener("click", () => {
+      document.getElementById("year-filter").value = "all";
+      document.getElementById("month-filter").value = "all";
+      renderDashboard();
+    });
+
+    document.getElementById("export-monthly").addEventListener("click", exportMonthlyCSV);
+
+    loadData();
+  </script>
 </body>
 </html>
