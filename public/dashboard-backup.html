@@ -185,6 +185,23 @@
   .d-neu { background: rgba(118,131,144,.15); color: var(--muted); }
 
   /* Expandir tabela */
+  .export-btn {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--muted);
+    padding: 6px 10px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 12px;
+    font-family: 'DM Sans', sans-serif;
+    transition: all .2s;
+  }
+  .export-btn:hover {
+    border-color: var(--accent);
+    color: var(--text);
+    background: var(--surf2);
+  }
+
   .expand-btn {
     background: transparent;
     border: 1px solid var(--border);
@@ -352,7 +369,10 @@
   <div class="table-card">
     <div class="table-header">
       <div class="table-title">Resumo por Mês</div>
-      <div class="table-badge" id="tbl-monthly-count"></div>
+      <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+        <div class="table-badge" id="tbl-monthly-count"></div>
+        <button class="export-btn" id="export-monthly-btn">Exportar CSV</button>
+      </div>
     </div>
     <div style="overflow-x:auto">
 <table>
@@ -975,6 +995,53 @@ function tblSetor(){
   }).join("");
 }
 
+function getFilteredMonthlyData(){
+  if(activeMonth){
+    return RAW.filter(d => d.m === activeMonth);
+  }
+  return filtByYear(activeYear).slice().reverse();
+}
+
+function exportMonthlyCSV(){
+  const data = getFilteredMonthlyData();
+
+  if(!data.length){
+    alert("Não há dados para exportar neste filtro.");
+    return;
+  }
+
+  const rows = [
+    ["Mês", "Total de OPs", "OPs Conformes", "OPs com NC", "Taxa NC %"],
+    ...data.map(d => {
+      const taxa = d.T ? (d.NC / d.T * 100).toFixed(1).replace(".", ",") : "0,0";
+      return [fmtM(d.m), d.T, d.C, d.NC, taxa];
+    })
+  ];
+
+  const csvContent = rows
+    .map(row => row.map(value => `"${String(value).replace(/"/g, '""')}"`).join(";"))
+    .join("\n");
+
+  const blob = new Blob(["\uFEFF" + csvContent], {
+    type: "text/csv;charset=utf-8;"
+  });
+
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+
+  const periodo = activeMonth
+    ? activeMonth
+    : activeYear === "all"
+      ? "todos-periodos"
+      : activeYear;
+
+  link.href = url;
+  link.download = `resumo-mensal-op-nc-${periodo}.csv`;
+  link.click();
+
+  URL.revokeObjectURL(url);
+}
+
 // ── Render principal ──
 function renderAll(){
   destroyAll();
@@ -1021,6 +1088,8 @@ document.getElementById("clear-month-btn").addEventListener("click",()=>{
   updateMonthUI();
   renderAll();
 });
+
+document.getElementById("export-monthly-btn").addEventListener("click", exportMonthlyCSV);
 
 document.getElementById("expand-monthly-btn").addEventListener("click",()=>{
   monthlyExpanded = !monthlyExpanded;
