@@ -692,6 +692,139 @@ function normalizeSectorDataSources(){
   SETOR_ANUAL = anual;
 }
 
+
+function parseCSV(text){
+  const rows = [];
+  let row = [];
+  let cell = "";
+  let inQuotes = false;
+
+  for(let i = 0; i < text.length; i++){
+    const ch = text[i];
+    const next = text[i + 1];
+
+    if(ch === '"'){
+      if(inQuotes && next === '"'){
+        cell += '"';
+        i++;
+      } else {
+        inQuotes = !inQuotes;
+      }
+    } else if(ch === ',' && !inQuotes){
+      row.push(cell);
+      cell = "";
+    } else if((ch === '\n' || ch === '\r') && !inQuotes){
+      if(ch === '\r' && next === '\n') i++;
+      row.push(cell);
+      if(row.some(v => String(v).trim() !== "")) rows.push(row);
+      row = [];
+      cell = "";
+    } else {
+      cell += ch;
+    }
+  }
+
+  row.push(cell);
+  if(row.some(v => String(v).trim() !== "")) rows.push(row);
+  return rows;
+}
+
+function findColumn(headers, candidates){
+  const normalized = headers.map(normTxt);
+
+  for(const c of candidates){
+    const target = normTxt(c);
+    const exact = normalized.findIndex(h => h === target);
+    if(exact >= 0) return exact;
+  }
+
+  for(const c of candidates){
+    const target = normTxt(c);
+    const partial = normalized.findIndex(h => h && target && (h.includes(target) || target.includes(h)));
+    if(partial >= 0) return partial;
+  }
+
+  return -1;
+}
+
+function findColumns(headers, candidates){
+  const normalized = headers.map(normTxt);
+  const found = new Set();
+
+  for(const c of candidates){
+    const target = normTxt(c);
+    normalized.forEach((h, i) => {
+      if(h === target) found.add(i);
+    });
+  }
+
+  for(const c of candidates){
+    const target = normTxt(c);
+    normalized.forEach((h, i) => {
+      if(h && target && (h.includes(target) || target.includes(h))) found.add(i);
+    });
+  }
+
+  return [...found];
+}
+
+function parseMonth(value){
+  const raw = String(value ?? "").trim();
+  if(!raw) return null;
+
+  let m = raw.match(/^(\d{4})[-\/.](\d{1,2})(?:[-\/.](\d{1,2}))?/);
+  if(m) return `${m[1]}-${String(+m[2]).padStart(2,"0")}`;
+
+  m = raw.match(/^(\d{1,2})[-\/.](\d{1,2})[-\/.](\d{2,4})$/);
+  if(m){
+    const year = m[3].length === 2 ? `20${m[3]}` : m[3];
+    return `${year}-${String(+m[2]).padStart(2,"0")}`;
+  }
+
+  m = raw.match(/^(\d{1,2})[-\/.](\d{4})$/);
+  if(m) return `${m[2]}-${String(+m[1]).padStart(2,"0")}`;
+
+  const monthNames = {
+    jan:1, janeiro:1, fev:2, fevereiro:2, mar:3, marco:3, março:3,
+    abr:4, abril:4, mai:5, maio:5, jun:6, junho:6,
+    jul:7, julho:7, ago:8, agosto:8, set:9, setembro:9,
+    out:10, outubro:10, nov:11, novembro:11, dez:12, dezembro:12
+  };
+  const n = normTxt(raw).replace(/[^a-z0-9/\- ]/g, " ").replace(/\s+/g, " ").trim();
+
+  m = n.match(/([a-zç]{3,9})[\/\- ]+(\d{2,4})/i);
+  if(m && monthNames[m[1]]){
+    const year = m[2].length === 2 ? `20${m[2]}` : m[2];
+    return `${year}-${String(monthNames[m[1]]).padStart(2,"0")}`;
+  }
+
+  // Google Visualization pode retornar Date(2026,5,1). O mês é zero-based.
+  m = raw.match(/^Date\((\d{4}),\s*(\d{1,2}),\s*(\d{1,2})/);
+  if(m) return `${m[1]}-${String(+m[2] + 1).padStart(2,"0")}`;
+
+  const d = new Date(raw);
+  if(!Number.isNaN(d.getTime())){
+    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`;
+  }
+
+  return null;
+}
+
+function isConforme(value){
+  const s = normTxt(value);
+  return s === "c" || s === "conforme" || s === "fechado conforme" || s === "finalizada conforme" || s === "finalizado conforme";
+}
+
+function isNaoConforme(value){
+  const s = normTxt(value);
+  return s === "nc" || s === "nao conforme" || s === "não conforme" || s.includes("nao conforme") || s.includes("não conforme");
+}
+
+function isMarked(value){
+  const s = normTxt(value);
+  return !!s && !["0", "nao", "não", "n", "false", "-", "na", "n/a"].includes(s);
+}
+
 function classifyMotivo(obs){
   const s = normTxt(obs);
   if(!s) return "Sem preenchimento";
@@ -880,18 +1013,31 @@ function loadGvizCsvText(){
   });
 }
 
+async function fetchTextNoStore(url){
+  const joiner = url.includes("?") ? "&" : "?";
+  const response = await fetch(url + joiner + "cacheBust=" + Date.now(), {cache: "no-store"});
+  if(!response.ok) throw new Error(`HTTP ${response.status}`);
+  return await response.text();
+}
+
 async function getPublishedCsvText(){
-  // GViz/JSONP costuma atualizar melhor em GitHub Pages e evita bloqueio de CORS.
+  // Ordem de tentativa:
+  // 1) CSV publicado direto; 2) GViz/JSONP; 3) proxy público AllOrigins.
+  // Assim o dashboard não depende de apenas uma forma de acesso do Google.
+  try{
+    return await fetchTextNoStore(GOOGLE_SHEET_CSV_URL);
+  } catch(csvError){
+    console.warn("CSV publicado falhou; tentando GViz/JSONP.", csvError);
+  }
+
   try{
     return await loadGvizCsvText();
   } catch(gvizError){
-    console.warn("GViz/JSONP falhou; tentando CSV publicado.", gvizError);
-    const joiner = GOOGLE_SHEET_CSV_URL.includes("?") ? "&" : "?";
-    const url = GOOGLE_SHEET_CSV_URL + joiner + "cacheBust=" + Date.now();
-    const response = await fetch(url, {cache: "no-store"});
-    if(!response.ok) throw new Error(`HTTP ${response.status}`);
-    return await response.text();
+    console.warn("GViz/JSONP falhou; tentando proxy AllOrigins.", gvizError);
   }
+
+  const proxyUrl = "https://api.allorigins.win/raw?url=" + encodeURIComponent(GOOGLE_SHEET_CSV_URL);
+  return await fetchTextNoStore(proxyUrl);
 }
 
 async function loadPublishedSheet(){
