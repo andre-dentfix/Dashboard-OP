@@ -1,0 +1,1223 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="icon" type="image/png" href="/favicon.png">
+<title>Controle de Fechamento de OPs</title>
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,300&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  :root {
+    --bg:      #0d1117;
+    --surface: #161b22;
+    --surf2:   #1c2230;
+    --border:  #21293a;
+    --accent:  #e63946;
+    --accent2: #ff6b35;
+    --ok:      #2ec4b6;
+    --warn:    #f4a261;
+    --text:    #e6edf3;
+    --muted:   #768390;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: 'DM Sans', sans-serif; font-size: 14px; min-height: 100vh; overflow-x: hidden; }
+
+  /* ── HEADER ── */
+  header {
+    background: var(--surface); border-bottom: 1px solid var(--border);
+    padding: 0 32px; height: 64px; position: sticky; top: 0; z-index: 100;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .logo { display: flex; align-items: center; gap: 12px; }
+  .logo-icon { width: 36px; height: 36px; background: var(--accent); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-family: 'Rajdhani', sans-serif; font-size: 18px; font-weight: 700; color: #fff; }
+  .logo-text { font-family: 'Rajdhani', sans-serif; font-size: 18px; font-weight: 700; letter-spacing: .04em; }
+  .logo-sub  { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
+  .header-right { text-align: right; font-size: 12px; color: var(--muted); }
+  .header-right strong { color: var(--text); }
+
+  /* ── FILTER BAR ── */
+  .filter-bar {
+    background: var(--surface); border-bottom: 1px solid var(--border);
+    padding: 12px 32px; display: flex; align-items: center; gap: 20px; flex-wrap: wrap;
+  }
+  .filter-group { display: flex; align-items: center; gap: 10px; }
+  .filter-sep { width: 1px; height: 24px; background: var(--border); }
+  .filter-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; white-space: nowrap; }
+  .filter-btn {
+    background: transparent; border: 1px solid var(--border); color: var(--muted);
+    padding: 5px 14px; border-radius: 20px; cursor: pointer;
+    font-size: 12px; font-family: 'DM Sans', sans-serif; transition: all .2s;
+  }
+  .filter-btn:hover  { border-color: var(--accent); color: var(--text); }
+  .filter-btn.active { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+
+  /* select de mês */
+  .month-select-wrap { position: relative; }
+  .month-select-wrap select {
+    appearance: none;
+    background: var(--surf2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 5px 32px 5px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-family: 'DM Sans', sans-serif;
+    cursor: pointer;
+    transition: border-color .2s;
+    outline: none;
+  }
+  .month-select-wrap select:hover,
+  .month-select-wrap select:focus { border-color: var(--accent); }
+  .month-select-wrap select.active-month {
+    background: rgba(230,57,70,.15);
+    border-color: var(--accent);
+    color: var(--accent);
+    font-weight: 600;
+  }
+  .month-select-wrap::after {
+    content: '▾';
+    position: absolute;
+    right: 12px; top: 50%;
+    transform: translateY(-50%);
+    font-size: 10px;
+    color: var(--muted);
+    pointer-events: none;
+  }
+  .clear-month-btn {
+    background: transparent; border: 1px solid var(--border); color: var(--muted);
+    padding: 5px 10px; border-radius: 20px; cursor: pointer;
+    font-size: 11px; font-family: 'DM Sans', sans-serif; transition: all .2s;
+    display: none;
+  }
+  .clear-month-btn.visible { display: inline-flex; align-items: center; gap: 4px; }
+  .clear-month-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+  /* periodo badge */
+  .period-pill {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: rgba(88,166,255,.1); border: 1px solid rgba(88,166,255,.25);
+    color: #58a6ff; padding: 4px 12px; border-radius: 20px;
+    font-size: 12px; font-weight: 600;
+    transition: all .3s;
+  }
+  .period-pill.month-mode {
+    background: rgba(230,57,70,.1);
+    border-color: rgba(230,57,70,.3);
+    color: var(--accent);
+  }
+
+  /* ── MAIN ── */
+  main { padding: 28px 32px; max-width: 1600px; margin: 0 auto; }
+  .section-title { font-family: 'Rajdhani', sans-serif; font-size: 13px; font-weight: 600; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); margin-bottom: 14px; display: flex; align-items: center; gap: 8px; }
+  .section-title::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+
+  /* ── KPI ── */
+  .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 16px; margin-bottom: 28px; }
+  .kpi-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 20px 22px; position: relative; overflow: hidden; transition: transform .2s, box-shadow .2s; }
+  .kpi-card:hover { transform: translateY(-2px); box-shadow: 0 8px 30px rgba(0,0,0,.4); }
+  .kpi-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; background: var(--kpi-color, var(--accent)); }
+  .kpi-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; margin-bottom: 8px; }
+  .kpi-value { font-family: 'Rajdhani', sans-serif; font-size: 38px; font-weight: 700; line-height: 1; color: var(--kpi-color, var(--text)); }
+  .kpi-sub   { font-size: 12px; color: var(--muted); margin-top: 6px; }
+  .kpi-badge { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 10px; margin-top: 6px; }
+  .bg { background: rgba(46,196,182,.15);  color: var(--ok); }
+  .bw { background: rgba(244,162,97,.15);  color: var(--warn); }
+  .bb { background: rgba(230,57,70,.15);   color: var(--accent); }
+
+  /* comparativo mês */
+  .kpi-delta { font-size: 12px; margin-top: 8px; display: flex; align-items: center; gap: 5px; }
+  .kpi-delta .d-up  { color: var(--accent); }
+  .kpi-delta .d-dn  { color: var(--ok); }
+  .kpi-delta .d-neu { color: var(--muted); }
+
+  /* ── CHARTS ── */
+  .chart-grid { display: grid; gap: 16px; margin-bottom: 28px; }
+  .grid-2 { grid-template-columns: repeat(2, 1fr); }
+  .chart-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 20px 22px; }
+  .chart-card.full { grid-column: 1 / -1; }
+  .chart-title { font-family: 'Rajdhani', sans-serif; font-size: 15px; font-weight: 600; letter-spacing: .04em; margin-bottom: 4px; }
+  .chart-desc  { font-size: 11px; color: var(--muted); margin-bottom: 16px; }
+
+  /* ── MONTH VIEW ── */
+  .month-view { display: none; margin-bottom: 28px; }
+  .month-view.visible { display: block; }
+
+  .month-header-card {
+    background: linear-gradient(135deg, rgba(230,57,70,.08) 0%, rgba(255,107,53,.05) 100%);
+    border: 1px solid rgba(230,57,70,.2);
+    border-radius: 12px;
+    padding: 24px 28px;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 16px;
+  }
+  .month-header-title { font-family: 'Rajdhani', sans-serif; font-size: 28px; font-weight: 700; color: var(--accent); }
+  .month-header-sub   { font-size: 13px; color: var(--muted); margin-top: 4px; }
+  .month-stats { display: flex; gap: 32px; flex-wrap: wrap; }
+  .month-stat { text-align: center; }
+  .month-stat-val { font-family: 'Rajdhani', sans-serif; font-size: 32px; font-weight: 700; }
+  .month-stat-lbl { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
+
+  /* ── TABLES ── */
+  .table-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; margin-bottom: 28px; }
+  .table-header { padding: 16px 22px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
+  .table-title  { font-family: 'Rajdhani', sans-serif; font-size: 15px; font-weight: 600; }
+  .table-badge  { font-size: 11px; color: var(--muted); background: var(--surf2); padding: 3px 10px; border-radius: 10px; }
+  table { width: 100%; border-collapse: collapse; }
+  thead th { background: var(--surf2); padding: 10px 16px; text-align: left; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); white-space: nowrap; }
+  tbody tr { border-bottom: 1px solid var(--border); transition: background .15s; }
+  tbody tr:last-child { border-bottom: none; }
+  tbody tr:hover { background: var(--surf2); }
+  tbody td { padding: 10px 16px; font-size: 13px; vertical-align: middle; }
+  .chip-nc { background: rgba(230,57,70,.15);  color: var(--accent); padding: 2px 10px; border-radius: 10px; font-size: 11px; font-weight: 600; }
+  .chip-c  { background: rgba(46,196,182,.15); color: var(--ok);     padding: 2px 10px; border-radius: 10px; font-size: 11px; font-weight: 600; }
+  .bar-wrap { display: flex; align-items: center; gap: 8px; }
+  .bar-bg   { flex: 1; height: 6px; background: var(--border); border-radius: 3px; overflow: hidden; min-width: 60px; }
+  .bar-fill { height: 100%; border-radius: 3px; transition: width .4s; }
+  .bar-lbl  { font-size: 12px; font-weight: 600; min-width: 40px; text-align: right; }
+  .delta    { font-size: 11px; padding: 2px 7px; border-radius: 8px; font-weight: 600; }
+.d-up  { background: rgba(230,57,70,.15);   color: var(--accent); }
+  .d-dn  { background: rgba(46,196,182,.15);  color: var(--ok); }
+  .d-neu { background: rgba(118,131,144,.15); color: var(--muted); }
+
+  /* Expandir tabela */
+  .export-btn {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--muted);
+    padding: 6px 10px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 12px;
+    font-family: 'DM Sans', sans-serif;
+    transition: all .2s;
+  }
+  .export-btn:hover {
+    border-color: var(--accent);
+    color: var(--text);
+    background: var(--surf2);
+  }
+
+  .expand-btn {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--muted);
+    padding: 10px 20px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 13px;
+    font-family: 'DM Sans', sans-serif;
+    transition: all .2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    width: 100%;
+    margin-top: 0;
+  }
+  .expand-btn:hover {
+    border-color: var(--accent);
+    color: var(--text);
+    background: var(--surf2);
+  }
+  .expand-btn svg {
+    transition: transform .3s;
+  }
+  .expand-btn.expanded svg {
+    transform: rotate(180deg);
+  }
+  .table-footer {
+    padding: 12px 22px;
+    border-top: 1px solid var(--border);
+  }
+
+  /* ── ANIM ── */
+  @keyframes fadeUp { from { opacity:0; transform:translateY(14px); } to { opacity:1; transform:translateY(0); } }
+  .kpi-card, .chart-card, .table-card, .month-header-card { animation: fadeUp .35s ease both; }
+  .kpi-card:nth-child(1){animation-delay:.04s} .kpi-card:nth-child(2){animation-delay:.08s}
+  .kpi-card:nth-child(3){animation-delay:.12s} .kpi-card:nth-child(4){animation-delay:.16s}
+  .kpi-card:nth-child(5){animation-delay:.20s} .kpi-card:nth-child(6){animation-delay:.24s}
+
+  /* ── RESPONSIVE ── */
+  @media (max-width:960px) { main { padding:20px 16px; } .grid-2 { grid-template-columns:1fr; } }
+  @media (max-width:700px)  { .filter-bar { gap:10px; } .filter-sep { display:none; } }
+  @media (max-width:600px)  { header,.filter-bar { padding-left:16px; padding-right:16px; } .kpi-grid { grid-template-columns:repeat(2,1fr); } }
+
+  /* ── HEATMAP ── */
+  .heatmap-wrap { overflow-x: auto; }
+  .heatmap-table { border-collapse: collapse; width: 100%; font-size: 11px; }
+  .heatmap-table th { padding: 5px 8px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: .06em; white-space: nowrap; text-align: center; }
+  .heatmap-table th.setor-col { text-align: left; min-width: 110px; }
+  .heatmap-table td { padding: 3px 4px; text-align: center; }
+  .heatmap-table td.setor-name { text-align: left; padding: 5px 10px 5px 0; font-weight: 600; font-size: 12px; color: var(--text); white-space: nowrap; }
+  .hm-cell {
+    width: 28px; height: 28px; border-radius: 4px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 10px; font-weight: 600; cursor: default;
+    transition: transform .15s;
+    margin: 1px auto;
+  }
+  .hm-cell:hover { transform: scale(1.25); z-index: 10; position: relative; }
+  .hm-cell.hm-0  { background: var(--surf2); color: transparent; }
+  .hm-cell.hm-1  { background: rgba(230,57,70,.15); color: #e63946; }
+  .hm-cell.hm-2  { background: rgba(230,57,70,.30); color: #e63946; }
+  .hm-cell.hm-3  { background: rgba(230,57,70,.50); color: #fff; }
+  .hm-cell.hm-4  { background: rgba(230,57,70,.75); color: #fff; }
+  .hm-cell.hm-5  { background: rgba(230,57,70,1);   color: #fff; }
+  .hm-legend { display: flex; align-items: center; gap: 8px; margin-top: 12px; font-size: 11px; color: var(--muted); }
+  .hm-legend-cells { display: flex; gap: 3px; }
+  .hm-legend-cell { width: 18px; height: 18px; border-radius: 3px; }
+
+  ::-webkit-scrollbar { width:6px; height:6px; }
+  ::-webkit-scrollbar-track { background:var(--bg); }
+  ::-webkit-scrollbar-thumb { background:var(--border); border-radius:3px; }
+  ::-webkit-scrollbar-thumb:hover { background:var(--muted); }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="logo-icon">★</div>
+    <div>
+      <div class="logo-text">Dashboard de OPs</div>
+      <div class="logo-sub">Análise de Não-Conformidades em OPs</div>
+    </div>
+  </div>
+  <div class="header-right">
+        <div id="last-updated" style="margin-top:2px"></div>
+  </div>
+</header>
+
+<div class="filter-bar">
+  <!-- Filtro de ano -->
+  <div class="filter-group">
+    <span class="filter-label">Ano</span>
+    <button class="filter-btn active" data-year="all">Todos</button>
+    <button class="filter-btn" data-year="2022">2022</button>
+    <button class="filter-btn" data-year="2023">2023</button>
+    <button class="filter-btn" data-year="2024">2024</button>
+    <button class="filter-btn" data-year="2025">2025</button>
+    <button class="filter-btn" data-year="2026">2026</button>
+  </div>
+
+  <div class="filter-sep"></div>
+
+  <!-- Filtro de mês -->
+  <div class="filter-group">
+    <span class="filter-label">Mês</span>
+    <div class="month-select-wrap">
+      <select id="month-select">
+        <option value="">— Selecionar mês —</option>
+      </select>
+    </div>
+    <button class="clear-month-btn" id="clear-month-btn">✕ Limpar</button>
+  </div>
+
+  <div class="filter-sep"></div>
+
+  <!-- Período ativo -->
+  <div class="period-pill" id="period-pill">
+    <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor"><path d="M11 6.5a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-1a.5.5 0 0 1-.5-.5v-1z"/><path d="M3.5 0a.5.5 0 0 1 .5.5V1h8V.5a.5.5 0 0 1 1 0V1h1a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V3a2 2 0 0 1 2-2h1V.5a.5.5 0 0 1 .5-.5zM1 4v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V4H1z"/></svg>
+    <span id="period-label">Todos os períodos</span>
+  </div>
+</div>
+
+<main>
+
+  <!-- KPIs -->
+  <div class="section-title">Indicadores Gerais</div>
+  <div class="kpi-grid" id="kpi-grid"></div>
+
+  <!-- View de mês específico -->
+  <div class="month-view" id="month-view">
+    <div class="month-header-card" id="month-header-card"></div>
+    <div class="chart-grid grid-2">
+      <div class="chart-card">
+        <div class="chart-title">NCs por Setor no Mês</div>
+        <div class="chart-desc">Distribuição de responsabilidades no período selecionado</div>
+        <canvas id="chartMonthSetor" height="200"></canvas>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">Comparativo com Mês Anterior</div>
+        <div class="chart-desc">NCs por setor: mês atual vs anterior</div>
+        <canvas id="chartMonthComp" height="200"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- View geral (esconde no modo mês) -->
+  <div id="general-view">
+    <div class="section-title">Evolução Mensal</div>
+    <div class="chart-grid">
+      <div class="chart-card full">
+        <div class="chart-title">Volume de OPs e NCs por Mês</div>
+        <div class="chart-desc">Barras: OPs conformes (verde) e NCs por setor (vermelho) · Linha: taxa NC %</div>
+        <canvas id="chartTrend" height="80"></canvas>
+      </div>
+    </div>
+
+    <div class="section-title">Análise por Setor</div>
+    <div class="chart-grid grid-2">
+      <div class="chart-card">
+        <div class="chart-title">NCs por Setor — Acumulado</div>
+        <div class="chart-desc">NC por setor representa a contagem dos setores envolvidos nas não conformidades; por isso, uma mesma OP pode contabilizar mais de um setor quando houver mais de uma área envolvida.</div>
+        <canvas id="chartSetor" height="200"></canvas>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">NCs por Setor — Evolução Anual</div>
+        <div class="chart-desc">Top 6 setores com mais NCs, ano a ano</div>
+        <canvas id="chartSetorAnual" height="200"></canvas>
+      </div>
+    </div>
+
+    <div class="chart-grid grid-2">
+      <div class="chart-card">
+        <div class="chart-title">Resumo Anual</div>
+        <div class="chart-desc">OPs conformes vs NCs explodidas por ano</div>
+        <canvas id="chartAnual" height="180"></canvas>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">Principais Motivos de NC</div>
+        <div class="chart-desc">Frequência por tipo de não-conformidade nas observações</div>
+        <canvas id="chartMotivos" height="180"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- Heatmap Setor x Mes -->
+  <div id="heatmap-section">
+    <div class="section-title">Mapa de Calor</div>
+    <div class="chart-card full" style="margin-bottom:28px">
+      <div class="chart-title">Intensidade de NCs por Setor × Mês</div>
+      <div class="chart-desc">Cada célula mostra o volume de NCs — quanto mais escuro, maior a concentração. Passe o mouse para ver o valor exato.</div>
+      <div class="heatmap-wrap">
+        <table class="heatmap-table" id="heatmap-table"></table>
+      </div>
+      <div class="hm-legend">
+        <span>Intensidade:</span>
+        <div class="hm-legend-cells">
+          <div class="hm-legend-cell" style="width:18px;height:18px;border-radius:3px;display:inline-block;background:var(--surf2)"></div>
+          <div class="hm-legend-cell" style="width:18px;height:18px;border-radius:3px;display:inline-block;background:rgba(230,57,70,.15)"></div>
+          <div class="hm-legend-cell" style="width:18px;height:18px;border-radius:3px;display:inline-block;background:rgba(230,57,70,.35)"></div>
+          <div class="hm-legend-cell" style="width:18px;height:18px;border-radius:3px;display:inline-block;background:rgba(230,57,70,.55)"></div>
+          <div class="hm-legend-cell" style="width:18px;height:18px;border-radius:3px;display:inline-block;background:rgba(230,57,70,.78)"></div>
+          <div class="hm-legend-cell" style="width:18px;height:18px;border-radius:3px;display:inline-block;background:rgba(230,57,70,1)"></div>
+        </div>
+        <span>Nenhuma → Alta</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tabela mensal (sempre visível) -->
+  <div class="section-title">Histórico Mensal Detalhado</div>
+  <div class="table-card">
+    <div class="table-header">
+      <div class="table-title">Resumo por Mês</div>
+      <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+        <div class="table-badge" id="tbl-monthly-count"></div>
+        <button class="export-btn" id="export-monthly-btn">Exportar CSV</button>
+      </div>
+    </div>
+    <div style="overflow-x:auto">
+<table>
+        <thead><tr>
+          <th>Mês</th>
+          <th>Total de OPs</th>
+          <th>OPs Conformes</th>
+          <th>OPs com NC</th>
+          <th>Taxa NC %</th>
+          <th>vs. Mês Ant.</th>
+        </tr></thead>
+        <tbody id="tbody-monthly"></tbody>
+      </table>
+    </div>
+    <div class="table-footer" id="monthly-table-footer" style="display:none">
+      <button class="expand-btn" id="expand-monthly-btn">
+        <span id="expand-monthly-text">Ver mais</span>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="6 9 12 15 18 9"></polyline>
+        </svg>
+      </button>
+    </div>
+  </div>
+
+  <!-- Ranking setores (sempre visível) -->
+  <div class="section-title">Ranking de Setores</div>
+  <div class="table-card">
+    <div class="table-header">
+      <div class="table-title">NCs por Setor — Contagem Individual</div>
+      <div class="table-badge" id="tbl-setor-count"></div>
+    </div>
+    <div style="overflow-x:auto">
+<table>
+        <thead><tr>
+          <th>Pos.</th>
+          <th>Setor</th>
+          <th>NCs</th>
+          <th>Participação</th>
+        </tr></thead>
+        <tbody id="tbody-setor"></tbody>
+      </table>
+    </div>
+    <div class="table-footer" id="setor-table-footer" style="display:none">
+      <button class="expand-btn" id="expand-setor-btn">
+        <span id="expand-setor-text">Ver mais</span>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="6 9 12 15 18 9"></polyline>
+        </svg>
+      </button>
+    </div>
+  </div>
+
+</main>
+
+<script>
+// ══════════════════════════════════════════════════════
+// DADOS — Atualizado automaticamente via planilha CSV
+// Total OPs: 8.782 | OPs NC: 2.540 | Taxa média: 28.92%
+// Período: Out/2022 — Mai/2026
+// ══════════════════════════════════════════════════════
+const RAW = [
+  {m:"2022-10",T:151,C:66,NC:85},{m:"2022-11",T:63,C:33,NC:30},{m:"2022-12",T:202,C:115,NC:87},
+  {m:"2023-01",T:128,C:79,NC:49},{m:"2023-02",T:104,C:55,NC:49},{m:"2023-03",T:90,C:58,NC:31},
+  {m:"2023-04",T:268,C:203,NC:65},{m:"2023-05",T:176,C:123,NC:53},{m:"2023-06",T:194,C:111,NC:83},
+  {m:"2023-07",T:121,C:71,NC:49},{m:"2023-08",T:48,C:33,NC:15},{m:"2023-09",T:273,C:170,NC:102},
+  {m:"2023-10",T:264,C:165,NC:97},{m:"2023-11",T:239,C:147,NC:92},{m:"2023-12",T:151,C:98,NC:52},
+  {m:"2024-01",T:238,C:177,NC:61},{m:"2024-02",T:233,C:85,NC:148},{m:"2024-03",T:27,C:27,NC:0},
+  {m:"2024-04",T:29,C:19,NC:10},{m:"2024-05",T:152,C:84,NC:68},{m:"2024-06",T:496,C:307,NC:189},
+  {m:"2024-07",T:358,C:254,NC:104},{m:"2024-08",T:280,C:234,NC:46},{m:"2024-09",T:202,C:164,NC:38},
+  {m:"2024-10",T:201,C:171,NC:30},{m:"2024-11",T:164,C:136,NC:28},{m:"2024-12",T:193,C:159,NC:34},
+  {m:"2025-01",T:139,C:115,NC:24},{m:"2025-02",T:183,C:158,NC:25},{m:"2025-03",T:281,C:242,NC:39},
+  {m:"2025-04",T:182,C:135,NC:47},{m:"2025-05",T:199,C:163,NC:36},{m:"2025-06",T:228,C:187,NC:41},
+  {m:"2025-07",T:211,C:159,NC:52},{m:"2025-08",T:247,C:175,NC:72},{m:"2025-09",T:292,C:215,NC:77},
+  {m:"2025-10",T:305,C:245,NC:60},{m:"2025-11",T:203,C:155,NC:48},{m:"2025-12",T:230,C:168,NC:60},
+  {m:"2026-01",T:298,C:207,NC:91},{m:"2026-02",T:217,C:167,NC:50},
+  {m:"2026-03",T:244,C:175,NC:69},{m:"2026-04",T:244,C:192,NC:49},{m:"2026-05",T:33,C:28,NC:5}
+];
+
+const ANNUAL = [
+  {ano:2022,T:416, NC:202, C:214},
+  {ano:2023,T:2056,NC:737, C:1313},
+  {ano:2024,T:2573,NC:756, C:1817},
+  {ano:2025,T:2700,NC:581, C:2117},
+  {ano:2026,T:1036,NC:264, C:769}
+];
+
+const SETOR_NC = {
+  "CQ":704,"Produção":262,"Projeto":241,"Rotulagem":235,
+  "Almoxarifado":167,"PCP":162,"Usinagem":105,"Estoque":78,
+  "Laboratório":72,"Gravação":47,"Engenharia":10
+};
+
+const SETOR_ANUAL = {
+  "CQ":          {2022:35, 2023:82, 2024:270,2025:253,2026:64},
+  "Produção":    {2022:16, 2023:8,  2024:30, 2025:152,2026:56},
+  "Projeto":     {2022:19, 2023:129,2024:40, 2025:48, 2026:5},
+  "Rotulagem":   {2022:19, 2023:31, 2024:97, 2025:62, 2026:26},
+  "Almoxarifado":{2022:8,  2023:22, 2024:84, 2025:39, 2026:14},
+  "PCP":         {2022:11, 2023:74, 2024:32, 2025:32, 2026:13},
+  "Usinagem":    {2022:5,  2023:32, 2024:53, 2025:15},
+  "Estoque":     {2022:5,  2023:16, 2024:21, 2025:23, 2026:13},
+  "Laboratório": {2022:2,  2023:11, 2024:41, 2025:15, 2026:3},
+  "Gravação":    {2022:2,  2023:9,  2024:12, 2025:5,  2026:19},
+  "Engenharia":  {2022:2,  2023:2,  2025:6}
+};
+
+// NCs por setor por mês — gerado da planilha CSV
+const SETOR_MENSAL = {
+  "2022-10":{"PCP":7,"Engenharia":2,"Estoque":3,"Produção":4,"CQ":18,"Rotulagem":12,"Usinagem":4,"Projeto":1,"Laboratório":1,"Almoxarifado":1},
+  "2022-11":{"PCP":1,"CQ":5,"Produção":2,"Estoque":2,"Almoxarifado":3,"Rotulagem":1,"Projeto":6},
+  "2022-12":{"Projeto":12,"Produção":10,"CQ":12,"Rotulagem":6,"Almoxarifado":4,"PCP":3,"Laboratório":1,"Gravação":2,"Usinagem":1},
+  "2023-01":{"CQ":10,"Produção":1,"Usinagem":1,"Rotulagem":2,"PCP":1,"Gravação":1,"Projeto":2},
+  "2023-02":{"Projeto":7,"Almoxarifado":2,"CQ":4,"Estoque":3,"Gravação":4,"Produção":2,"Usinagem":1,"Rotulagem":1},
+  "2023-03":{"Projeto":5,"CQ":5,"Usinagem":1,"Rotulagem":1,"Produção":1,"Almoxarifado":1},
+  "2023-04":{"Projeto":10,"Estoque":3,"CQ":4,"Laboratório":1,"Rotulagem":2,"Produção":1,"Usinagem":2,"Gravação":1},
+  "2023-05":{"Produção":3,"Projeto":8,"Estoque":1,"CQ":7,"PCP":2,"Rotulagem":4,"Almoxarifado":2},
+  "2023-06":{"Projeto":17,"PCP":6,"Laboratório":1,"CQ":10,"Gravação":1},
+  "2023-07":{"Estoque":1,"PCP":4,"Projeto":3,"Usinagem":2,"Almoxarifado":1,"Rotulagem":1,"CQ":3},
+  "2023-08":{"Usinagem":2,"PCP":2,"CQ":3,"Projeto":1,"Almoxarifado":1},
+  "2023-09":{"Engenharia":2,"PCP":27,"Almoxarifado":4,"Rotulagem":7,"Usinagem":6,"CQ":6,"Laboratório":6,"Estoque":1,"Projeto":4},
+  "2023-10":{"CQ":9,"Estoque":5,"Usinagem":5,"Projeto":28,"Laboratório":1,"Rotulagem":7,"Almoxarifado":5,"PCP":23},
+  "2023-11":{"CQ":18,"Projeto":35,"Usinagem":10,"PCP":7,"Rotulagem":3,"Almoxarifado":5,"Gravação":1,"Estoque":1,"Laboratório":1},
+  "2023-12":{"Rotulagem":3,"CQ":3,"Projeto":9,"Estoque":1,"Usinagem":2,"Laboratório":1,"Gravação":1,"PCP":2,"Almoxarifado":1},
+  "2024-01":{"Almoxarifado":2,"Gravação":2,"Projeto":6,"Usinagem":10,"Rotulagem":2,"CQ":12,"Laboratório":1,"PCP":3},
+  "2024-02":{"PCP":5,"Laboratório":2,"Projeto":4,"Almoxarifado":6,"Usinagem":7,"CQ":24,"Rotulagem":5,"Gravação":1},
+  "2024-05":{"CQ":32,"Rotulagem":9,"Usinagem":7,"PCP":8,"Projeto":6,"Almoxarifado":6,"Laboratório":4,"Estoque":4},
+  "2024-06":{"Estoque":10,"Almoxarifado":48,"CQ":60,"Usinagem":11,"Rotulagem":42,"Projeto":2,"PCP":7,"Laboratório":16,"Gravação":3,"Produção":5},
+  "2024-07":{"Rotulagem":15,"CQ":53,"Almoxarifado":14,"Produção":5,"Usinagem":6,"Gravação":3,"Estoque":1,"Laboratório":9,"PCP":7,"Projeto":1},
+  "2024-08":{"PCP":2,"Usinagem":4,"CQ":28,"Rotulagem":6,"Laboratório":2,"Gravação":2,"Estoque":2,"Produção":2,"Almoxarifado":1},
+  "2024-09":{"CQ":26,"Estoque":2,"Rotulagem":2,"Usinagem":1,"Almoxarifado":1,"Produção":3,"Laboratório":2,"Projeto":4},
+  "2024-10":{"CQ":12,"Rotulagem":4,"Almoxarifado":2,"Produção":8,"Laboratório":2,"Projeto":4,"Gravação":1,"Estoque":1,"Usinagem":2},
+  "2024-11":{"Rotulagem":9,"Almoxarifado":2,"Projeto":8,"CQ":5,"Usinagem":1,"Produção":3,"Laboratório":2},
+  "2024-12":{"Projeto":5,"Produção":4,"Estoque":1,"CQ":18,"Usinagem":4,"Rotulagem":3,"Almoxarifado":2,"Laboratório":1},
+  "2025-01":{"Usinagem":5,"Projeto":4,"CQ":14,"Laboratório":1,"Rotulagem":1,"Estoque":3,"Produção":1},
+  "2025-02":{"CQ":4,"Rotulagem":1,"Laboratório":2,"Usinagem":3,"Projeto":6,"Produção":7,"Estoque":1},
+  "2025-03":{"CQ":23,"Estoque":1,"Almoxarifado":3,"Usinagem":2,"Rotulagem":4,"Produção":7,"Projeto":2,"Gravação":1},
+  "2025-04":{"Produção":15,"CQ":19,"Rotulagem":5,"Projeto":6,"Laboratório":1,"Almoxarifado":3,"Usinagem":2,"PCP":2},
+  "2025-05":{"Projeto":7,"CQ":10,"Rotulagem":9,"Produção":4,"Almoxarifado":5,"Laboratório":1,"PCP":1},
+  "2025-06":{"Produção":12,"Laboratório":3,"Projeto":7,"CQ":23,"Rotulagem":1,"Almoxarifado":3,"Estoque":2},
+  "2025-07":{"CQ":33,"Projeto":1,"Produção":12,"Rotulagem":6,"Almoxarifado":2,"Estoque":1,"PCP":2,"Laboratório":3,"Usinagem":2,"Engenharia":2},
+  "2025-08":{"CQ":34,"Projeto":2,"Produção":12,"Estoque":3,"Engenharia":2,"PCP":11,"Rotulagem":2,"Usinagem":1,"Almoxarifado":4,"Laboratório":1},
+  "2025-09":{"PCP":11,"Engenharia":2,"CQ":32,"Rotulagem":13,"Produção":17,"Gravação":1,"Estoque":5,"Projeto":5,"Almoxarifado":1},
+  "2025-10":{"Projeto":6,"Produção":30,"CQ":24,"Almoxarifado":10,"Rotulagem":3,"Estoque":1,"PCP":1},
+  "2025-11":{"CQ":17,"Produção":19,"Almoxarifado":6,"PCP":3,"Projeto":2,"Rotulagem":6,"Estoque":1,"Gravação":1,"Laboratório":2},
+  "2025-12":{"CQ":20,"Produção":16,"Rotulagem":11,"Gravação":2,"Almoxarifado":2,"Estoque":5,"Laboratório":1,"PCP":1},
+  "2026-01":{"Rotulagem":11,"Produção":28,"Almoxarifado":6,"Gravação":1,"CQ":20,"Estoque":2,"Laboratório":2,"PCP":2},
+  "2026-02":{"Estoque":4,"Rotulagem":9,"CQ":11,"Almoxarifado":5,"Produção":16,"Gravação":1,"Laboratório":1,"PCP":1},
+  "2026-03":{"CQ":22,"Gravação":17,"PCP":2,"Estoque":2,"Projeto":3,"Rotulagem":3,"Produção":3,"Almoxarifado":1},
+  "2026-04":{"CQ":11,"Projeto":2,"PCP":7,"Rotulagem":3,"Produção":8,"Estoque":4,"Almoxarifado":2},
+  "2026-05":{"Produção":1,"PCP":1,"Estoque":1}
+};
+
+const MOTIVOS = {
+  "Sem preenchimento":1286,"Qtd. não confere":488,"Sem desenho":414,
+  "Cota divergente":226,"Sem assinatura":193,"Tolerância/CNC":158,
+  "Sem visto":140,"Sem cód. barras":21,"Sem certificado":2
+};
+const HEATMAP = {"CQ":{"2022-10":32,"2022-11":12,"2022-12":26,"2023-01":25,"2023-02":16,"2023-03":11,"2023-04":26,"2023-05":17,"2023-06":34,"2023-07":27,"2023-08":9,"2023-09":34,"2023-10":20,"2023-11":27,"2023-12":14,"2024-01":30,"2024-02":49,"2024-04":4,"2024-05":36,"2024-06":61,"2024-07":53,"2024-08":29,"2024-09":26,"2024-10":12,"2024-11":6,"2024-12":18,"2025-01":14,"2025-02":4,"2025-03":25,"2025-04":19,"2025-05":10,"2025-06":23,"2025-07":32,"2025-08":34,"2025-09":32,"2025-10":24,"2025-11":17,"2025-12":21,"2026-01":32,"2026-02":13,"2026-03":34,"2026-04":12},"Projeto":{"2022-10":12,"2022-11":10,"2022-12":38,"2023-01":15,"2023-02":16,"2023-03":10,"2023-04":22,"2023-05":17,"2023-06":29,"2023-07":11,"2023-08":2,"2023-09":7,"2023-10":25,"2023-11":42,"2023-12":18,"2024-01":19,"2024-02":50,"2024-04":2,"2024-05":6,"2024-06":2,"2024-07":1,"2024-08":0,"2024-09":4,"2024-10":4,"2024-11":8,"2024-12":5,"2025-01":4,"2025-02":6,"2025-03":2,"2025-04":6,"2025-05":7,"2025-06":7,"2025-07":1,"2025-08":2,"2025-09":5,"2025-10":6,"2025-11":2,"2025-12":0,"2026-01":1,"2026-02":0,"2026-03":3,"2026-04":2},"Produção":{"2022-10":22,"2022-11":7,"2022-12":22,"2023-01":11,"2023-02":12,"2023-03":5,"2023-04":9,"2023-05":6,"2023-06":9,"2023-07":1,"2023-08":0,"2023-09":1,"2023-10":1,"2023-11":1,"2023-12":3,"2024-01":2,"2024-02":10,"2024-04":1,"2024-05":0,"2024-06":5,"2024-07":5,"2024-08":2,"2024-09":3,"2024-10":8,"2024-11":3,"2024-12":5,"2025-01":2,"2025-02":7,"2025-03":10,"2025-04":15,"2025-05":4,"2025-06":12,"2025-07":12,"2025-08":12,"2025-09":17,"2025-10":30,"2025-11":19,"2025-12":22,"2026-01":39,"2026-02":18,"2026-03":15,"2026-04":8},"Rotulagem":{"2022-10":23,"2022-11":1,"2022-12":14,"2023-01":5,"2023-02":3,"2023-03":3,"2023-04":7,"2023-05":8,"2023-06":3,"2023-07":3,"2023-08":1,"2023-09":12,"2023-10":12,"2023-11":4,"2023-12":4,"2024-01":8,"2024-02":31,"2024-04":2,"2024-05":10,"2024-06":43,"2024-07":15,"2024-08":6,"2024-09":2,"2024-10":4,"2024-11":9,"2024-12":3,"2025-01":1,"2025-02":1,"2025-03":4,"2025-04":5,"2025-05":9,"2025-06":1,"2025-07":6,"2025-08":2,"2025-09":13,"2025-10":3,"2025-11":6,"2025-12":12,"2026-01":13,"2026-02":15,"2026-03":4,"2026-04":3},"PCP":{"2022-10":24,"2022-11":3,"2022-12":7,"2023-01":2,"2023-02":6,"2023-03":1,"2023-04":2,"2023-05":6,"2023-06":13,"2023-07":26,"2023-08":3,"2023-09":33,"2023-10":25,"2023-11":8,"2023-12":4,"2024-01":11,"2024-02":18,"2024-04":0,"2024-05":8,"2024-06":7,"2024-07":7,"2024-08":2,"2024-09":0,"2024-10":0,"2024-11":0,"2024-12":0,"2025-01":0,"2025-02":0,"2025-03":0,"2025-04":2,"2025-05":1,"2025-06":0,"2025-07":2,"2025-08":11,"2025-09":11,"2025-10":1,"2025-11":3,"2025-12":2,"2026-01":2,"2026-02":3,"2026-03":3,"2026-04":7},"Almoxarifado":{"2022-10":7,"2022-11":6,"2022-12":7,"2023-01":2,"2023-02":5,"2023-03":4,"2023-04":6,"2023-05":6,"2023-06":2,"2023-07":2,"2023-08":3,"2023-09":11,"2023-10":6,"2023-11":6,"2023-12":3,"2024-01":4,"2024-02":13,"2024-04":1,"2024-05":7,"2024-06":49,"2024-07":14,"2024-08":1,"2024-09":1,"2024-10":2,"2024-11":2,"2024-12":2,"2025-01":0,"2025-02":0,"2025-03":3,"2025-04":3,"2025-05":5,"2025-06":3,"2025-07":2,"2025-08":4,"2025-09":1,"2025-10":10,"2025-11":6,"2025-12":4,"2026-01":10,"2026-02":7,"2026-03":2,"2026-04":2},"Usinagem":{"2022-10":0,"2022-11":0,"2022-12":0,"2023-01":0,"2023-02":0,"2023-03":1,"2023-04":0,"2023-05":1,"2023-06":1,"2023-07":6,"2023-08":7,"2023-09":18,"2023-10":8,"2023-11":18,"2023-12":5,"2024-01":11,"2024-02":9,"2024-04":0,"2024-05":7,"2024-06":13,"2024-07":6,"2024-08":4,"2024-09":1,"2024-10":2,"2024-11":1,"2024-12":4,"2025-01":5,"2025-02":3,"2025-03":2,"2025-04":2,"2025-05":0,"2025-06":0,"2025-07":2,"2025-08":1,"2025-09":0,"2025-10":0,"2025-11":0,"2025-12":0,"2026-01":0,"2026-02":0,"2026-03":0,"2026-04":0}};
+
+
+
+// ── Heatmap ──
+function renderHeatmap(year){
+  const setores = Object.keys(HEATMAP);
+  // filtrar meses conforme ano
+  const allMonths = Object.keys(HEATMAP[setores[0]]);
+  const months = year==="all" ? allMonths : allMonths.filter(m=>m.startsWith(year));
+  if(!months.length){ document.getElementById("heatmap-table").innerHTML=""; return; }
+
+  // calcular max global para escala de cor
+  let maxVal = 0;
+  setores.forEach(s=>{ months.forEach(m=>{ maxVal = Math.max(maxVal, HEATMAP[s][m]||0); }); });
+
+  function hmClass(v){
+    if(!v) return "hm-0";
+    const pct = v/maxVal;
+    if(pct<=0.10) return "hm-1";
+    if(pct<=0.30) return "hm-2";
+    if(pct<=0.55) return "hm-3";
+    if(pct<=0.80) return "hm-4";
+    return "hm-5";
+  }
+
+  // cabeçalho (meses)
+  const namesShort = ["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"];
+  let thead = '<thead><tr><th class="setor-col">Setor</th>';
+  months.forEach(m=>{
+    const [y,mo] = m.split("-");
+    thead += `<th title="${m}">${namesShort[+mo-1]}<br><span style="font-size:9px;opacity:.6">${y.slice(2)}</span></th>`;
+  });
+  thead += "</tr></thead>";
+
+  // linhas por setor
+  let tbody = "<tbody>";
+  setores.forEach(s=>{
+    tbody += `<tr><td class="setor-name">${s}</td>`;
+    months.forEach(m=>{
+      const v = HEATMAP[s][m]||0;
+      const cls = hmClass(v);
+      const label = v>0?v:"";
+      tbody += `<td><div class="hm-cell ${cls}" title="${s} · ${fmtM(m)}: ${v} NCs">${label}</div></td>`;
+    });
+    tbody += "</tr>";
+  });
+  tbody += "</tbody>";
+
+  document.getElementById("heatmap-table").innerHTML = thead + tbody;
+}
+
+// ── Estado ──
+let activeYear  = "all";
+let activeMonth = "";   // "2025-04" ou vazio
+
+// ── Helpers ──
+Chart.defaults.color = "#768390";
+Chart.defaults.font.family = "'DM Sans',sans-serif";
+Chart.defaults.font.size = 12;
+
+const CLR = { accent:"#e63946",a2:"#ff6b35",ok:"#2ec4b6",warn:"#f4a261",blue:"#58a6ff",grid:"#21293a" };
+const PALETTE = ["#e63946","#ff6b35","#f4a261","#2ec4b6","#58a6ff","#a371f7","#e9c46a","#06d6a0","#ef476f","#118ab2","#ffd166","#8ecae6","#c77dff","#4cc9f0"];
+
+function pctCol(p){ return p<=15?CLR.ok:p<=25?CLR.warn:CLR.accent; }
+function fmtM(m){
+  const [y,mo]=m.split("-");
+  return ["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"][+mo-1]+"/"+y.slice(2);
+}
+function filtByYear(year){ return year==="all"?RAW:RAW.filter(d=>d.m.startsWith(year)); }
+
+// ── Popula select de meses ──
+function populateMonthSelect(year){
+  const sel = document.getElementById("month-select");
+  const data = filtByYear(year).slice().reverse();
+  sel.innerHTML = '<option value="">— Selecionar mês —</option>';
+  data.forEach(d=>{
+    const opt = document.createElement("option");
+    opt.value = d.m;
+    opt.textContent = fmtM(d.m);
+    if(d.m === activeMonth) opt.selected = true;
+    sel.appendChild(opt);
+  });
+  // Se mês ativo não está no novo filtro, limpa
+  if(activeMonth && !data.find(d=>d.m===activeMonth)){
+    activeMonth = "";
+  }
+  updateMonthUI();
+}
+
+function updateMonthUI(){
+  const sel = document.getElementById("month-select");
+  const btn = document.getElementById("clear-month-btn");
+  const pill= document.getElementById("period-pill");
+  const lbl = document.getElementById("period-label");
+
+  if(activeMonth){
+    sel.classList.add("active-month");
+    btn.classList.add("visible");
+    pill.classList.add("month-mode");
+    lbl.textContent = fmtM(activeMonth);
+  } else {
+    sel.classList.remove("active-month");
+    btn.classList.remove("visible");
+    pill.classList.remove("month-mode");
+    lbl.textContent = activeYear==="all"?"Todos os períodos":"Ano "+activeYear;
+  }
+}
+
+// ── KPIs ──
+function kpis(){
+  let data, label;
+  if(activeMonth){
+    data = RAW.filter(d=>d.m===activeMonth);
+    label = fmtM(activeMonth);
+  } else {
+    data = filtByYear(activeYear);
+    label = activeYear==="all"?"Out/2022 — Mai/2026":"Ano "+activeYear;
+  }
+
+  const totOps = data.reduce((s,d)=>s+d.T,0);
+  const totNC  = data.reduce((s,d)=>s+d.NC,0);
+  const totC   = data.reduce((s,d)=>s+d.C,0);
+  const taxa   = totOps?(totNC/totOps*100).toFixed(1):"0.0";
+
+  // Comparativo
+  let prevD=null, prevLabel="";
+  if(activeMonth){
+    const idx = RAW.findIndex(d=>d.m===activeMonth);
+    if(idx>0){ prevD=RAW[idx-1]; prevLabel=fmtM(prevD.m); }
+  }
+  const prevTaxa = prevD&&prevD.T?(prevD.NC/prevD.T*100).toFixed(1):null;
+
+  // Setor top
+  let sMap;
+  if(activeMonth){
+    sMap = SETOR_MENSAL[activeMonth]||{};
+  } else if(activeYear==="all"){
+    sMap = SETOR_NC;
+  } else {
+    sMap = {};
+    Object.entries(SETOR_ANUAL).forEach(([s,y])=>{ sMap[s]=y[+activeYear]||0; });
+  }
+  const top = Object.entries(sMap).sort((a,b)=>b[1]-a[1])[0]||["—",0];
+
+  let deltaHtml = "";
+  if(prevTaxa!==null){
+    const diff=(+taxa-+prevTaxa).toFixed(1);
+    const cls=+diff>0?"d-up":+diff<0?"d-dn":"d-neu";
+    const sym=+diff>0?"▲":+diff<0?"▼":"—";
+    deltaHtml=`<div class="kpi-delta"><span class="${cls}">${sym} ${Math.abs(diff)}% vs ${prevLabel}</span></div>`;
+  }
+
+  document.getElementById("kpi-grid").innerHTML=`
+    <div class="kpi-card" style="--kpi-color:${CLR.blue}">
+      <div class="kpi-label">Total de OPs</div>
+      <div class="kpi-value">${totOps.toLocaleString("pt-BR")}</div>
+      <div class="kpi-sub">${label}</div>
+    </div>
+    <div class="kpi-card" style="--kpi-color:${CLR.ok}">
+      <div class="kpi-label">OPs Fechadas Conformes</div>
+      <div class="kpi-value">${totC.toLocaleString("pt-BR")}</div>
+      <div class="kpi-sub">${totOps?(totC/totOps*100).toFixed(1):0}% do total de OPs</div>
+    </div>
+    <div class="kpi-card" style="--kpi-color:${CLR.accent}">
+      <div class="kpi-label">Ocorrências de NC por setor</div>
+      <div class="kpi-value">${totNC.toLocaleString("pt-BR")}</div>
+      <div class="kpi-sub">Uma OP pode gerar mais de uma ocorrência</div>
+    </div>
+    <div class="kpi-card" style="--kpi-color:${pctCol(+taxa)}">
+      <div class="kpi-label">Taxa de NC</div>
+      <div class="kpi-value">${taxa}%</div>
+      <div class="kpi-sub">NCs setoriais / total de OPs</div>
+      ${deltaHtml}
+      <span class="kpi-badge ${+taxa<=20?"bg":+taxa<=30?"bw":"bb"}">
+        ${+taxa<=20?"▼ Controlado":+taxa<=30?"◆ Atenção":"▲ Crítico"}
+      </span>
+    </div>
+    <div class="kpi-card" style="--kpi-color:${PALETTE[0]}">
+      <div class="kpi-label">Setor com Mais NCs</div>
+      <div class="kpi-value" style="font-size:20px;padding-top:8px">${top[0]}</div>
+      <div class="kpi-sub">${top[1].toLocaleString("pt-BR")} ocorrências no período</div>
+    </div>
+  `;
+}
+
+// ── Charts ──
+let charts={};
+function destroyAll(){ Object.values(charts).forEach(c=>c?.destroy()); charts={}; }
+
+function renderGeneralCharts(){
+  const monthly = filtByYear(activeYear);
+  const labels  = monthly.map(d=>fmtM(d.m));
+  const rateArr = monthly.map(d=>d.T?+(d.NC/d.T*100).toFixed(1):0);
+
+  charts.trend = new Chart(document.getElementById("chartTrend"),{
+    data:{
+      labels,
+      datasets:[
+        {type:"bar",label:"Conformes",data:monthly.map(d=>d.C),
+          backgroundColor:"rgba(46,196,182,0.5)",stack:"s",order:2,
+          borderRadius:{topLeft:0,topRight:0,bottomLeft:3,bottomRight:3}},
+        {type:"bar",label:"NCs por Setor",data:monthly.map(d=>d.NC),
+          backgroundColor:"rgba(230,57,70,0.72)",stack:"s",order:2,
+          borderRadius:{topLeft:3,topRight:3,bottomLeft:0,bottomRight:0}},
+        {type:"line",label:"Taxa NC %",data:rateArr,
+          borderColor:CLR.warn,backgroundColor:"rgba(244,162,97,0.1)",
+          pointBackgroundColor:rateArr.map(r=>pctCol(r)),
+          pointRadius:4,pointHoverRadius:6,borderWidth:2.5,
+          tension:0.35,fill:false,yAxisID:"yPct",order:1}
+      ]
+    },
+    options:{
+      responsive:true,
+      interaction:{mode:"index",intersect:false},
+      plugins:{
+        legend:{position:"top",labels:{usePointStyle:true,padding:20}},
+        tooltip:{backgroundColor:"#161b22",borderColor:"#21293a",borderWidth:1}
+      },
+      scales:{
+        x:{grid:{color:CLR.grid},ticks:{maxRotation:45,minRotation:30,font:{size:11}}},
+        y:{stacked:true,grid:{color:CLR.grid},title:{display:true,text:"Qtd.",color:CLR.blue}},
+        yPct:{position:"right",grid:{drawOnChartArea:false},
+          title:{display:true,text:"Taxa NC %",color:CLR.warn},
+          ticks:{callback:v=>v+"%"}}
+      }
+    }
+  });
+
+  const sd = activeYear==="all" ? SETOR_NC : (()=>{
+    const o={};
+    Object.entries(SETOR_ANUAL).forEach(([s,y])=>{ o[s]=y[+activeYear]||0; });
+    return Object.fromEntries(Object.entries(o).sort((a,b)=>b[1]-a[1]));
+  })();
+  const sL=Object.keys(sd), sV=Object.values(sd);
+  charts.setor = new Chart(document.getElementById("chartSetor"),{
+    type:"bar",
+    data:{labels:sL,datasets:[{label:"NCs",data:sV,
+      backgroundColor:sL.map((_,i)=>PALETTE[i%PALETTE.length]+"cc"),
+      borderColor:sL.map((_,i)=>PALETTE[i%PALETTE.length]),
+      borderWidth:1,borderRadius:4}]},
+    options:{
+      indexAxis:"y",responsive:true,
+      plugins:{legend:{display:false},
+        tooltip:{callbacks:{label:ctx=>{
+          const tot=sV.reduce((s,v)=>s+v,0);
+          return ` ${ctx.parsed.x} NCs (${(ctx.parsed.x/tot*100).toFixed(1)}%)`;
+        }}}
+      },
+      scales:{x:{grid:{color:CLR.grid}},y:{grid:{display:false}}}
+    }
+  });
+
+  const anos = activeYear==="all"?[2022,2023,2024,2025,2026]:[+activeYear];
+  charts.setorAnual = new Chart(document.getElementById("chartSetorAnual"),{
+    type:"bar",
+    data:{
+      labels:anos.map(String),
+      datasets:Object.keys(SETOR_ANUAL).map((s,i)=>({
+        label:s,
+        data:anos.map(a=>SETOR_ANUAL[s][a]||0),
+        backgroundColor:PALETTE[i]+"cc",borderColor:PALETTE[i],borderWidth:1,borderRadius:3
+      }))
+    },
+    options:{
+      responsive:true,
+      plugins:{legend:{position:"right",labels:{usePointStyle:true,padding:12,font:{size:11}}}},
+      scales:{x:{grid:{color:CLR.grid}},y:{grid:{color:CLR.grid}}}
+    }
+  });
+
+  const af = activeYear==="all"?ANNUAL:ANNUAL.filter(a=>String(a.ano)===activeYear);
+  charts.anual = new Chart(document.getElementById("chartAnual"),{
+    type:"bar",
+    data:{
+      labels:af.map(a=>String(a.ano)),
+      datasets:[
+        {label:"Conformes",data:af.map(a=>a.C),backgroundColor:"rgba(46,196,182,0.6)",borderColor:CLR.ok,borderWidth:1,borderRadius:4,stack:"a"},
+        {label:"NCs por Setor",data:af.map(a=>a.NC),backgroundColor:"rgba(230,57,70,0.6)",borderColor:CLR.accent,borderWidth:1,borderRadius:4,stack:"a"}
+      ]
+    },
+    options:{
+      responsive:true,
+      plugins:{
+        legend:{position:"top",labels:{usePointStyle:true,padding:16}},
+        tooltip:{callbacks:{afterBody:items=>{
+          const d=af[items[0].dataIndex];
+          return[`Taxa NC: ${(d.NC/d.T*100).toFixed(1)}%`];
+        }}}
+      },
+      scales:{x:{stacked:true,grid:{color:CLR.grid}},y:{stacked:true,grid:{color:CLR.grid}}}
+    }
+  });
+
+  const mL=Object.keys(MOTIVOS),mV=Object.values(MOTIVOS);
+  charts.motivos = new Chart(document.getElementById("chartMotivos"),{
+    type:"doughnut",
+    data:{labels:mL,datasets:[{data:mV,
+      backgroundColor:PALETTE.slice(0,mL.length).map(c=>c+"dd"),
+      borderColor:PALETTE.slice(0,mL.length),borderWidth:2,hoverOffset:8}]},
+    options:{
+      responsive:true,cutout:"60%",
+      plugins:{
+        legend:{position:"right",labels:{usePointStyle:true,padding:10,font:{size:11}}},
+        tooltip:{callbacks:{label:ctx=>{
+          const tot=ctx.dataset.data.reduce((s,v)=>s+v,0);
+          return ` ${ctx.label}: ${ctx.parsed.toLocaleString("pt-BR")} (${(ctx.parsed/tot*100).toFixed(1)}%)`;
+        }}}
+      }
+    }
+  });
+}
+
+function renderMonthCharts(){
+  const sm  = SETOR_MENSAL[activeMonth]||{};
+  const idx = RAW.findIndex(d=>d.m===activeMonth);
+  const prev= idx>0?RAW[idx-1]:null;
+  const smp = prev?(SETOR_MENSAL[prev.m]||{}):null;
+
+  const d   = RAW.find(d=>d.m===activeMonth)||{T:0,NC:0,C:0};
+  const taxa= d.T?(d.NC/d.T*100).toFixed(1):"0.0";
+
+  // Header do mês
+  let prevCompare="";
+  if(prev){
+    const pTaxa=(prev.NC/prev.T*100).toFixed(1);
+    const diff=(+taxa - +pTaxa).toFixed(1);
+    const cls=+diff>0?"d-up":+diff<0?"d-dn":"d-neu";
+    const sym=+diff>0?"▲":+diff<0?"▼":"—";
+    prevCompare=`<div style="font-size:12px;margin-top:4px;color:var(--muted)">vs ${fmtM(prev.m)}: <span class="delta ${cls}">${sym} ${Math.abs(diff)}%</span></div>`;
+  }
+  document.getElementById("month-header-card").innerHTML=`
+    <div>
+      <div class="month-header-title">${fmtM(activeMonth)}</div>
+      <div class="month-header-sub">Visão detalhada do mês selecionado</div>
+    </div>
+    <div class="month-stats">
+      <div class="month-stat">
+        <div class="month-stat-val" style="color:${CLR.blue}">${d.T}</div>
+        <div class="month-stat-lbl">Total OPs</div>
+      </div>
+      <div class="month-stat">
+        <div class="month-stat-val" style="color:${CLR.ok}">${d.C}</div>
+        <div class="month-stat-lbl">Conformes</div>
+      </div>
+      <div class="month-stat">
+        <div class="month-stat-val" style="color:${CLR.accent}">${d.NC}</div>
+        <div class="month-stat-lbl">NCs (Setores)</div>
+      </div>
+      <div class="month-stat">
+        <div class="month-stat-val" style="color:${pctCol(+taxa)}">${taxa}%</div>
+        <div class="month-stat-lbl">Taxa NC</div>
+        ${prevCompare}
+      </div>
+    </div>
+  `;
+
+  // Gráfico setores do mês
+  const sorted = Object.entries(sm).sort((a,b)=>b[1]-a[1]).filter(([,v])=>v>0);
+  const sL = sorted.map(s=>s[0]), sV = sorted.map(s=>s[1]);
+  charts.monthSetor = new Chart(document.getElementById("chartMonthSetor"),{
+    type:"bar",
+    data:{labels:sL,datasets:[{label:"NCs",data:sV,
+      backgroundColor:sL.map((_,i)=>PALETTE[i%PALETTE.length]+"cc"),
+      borderColor:sL.map((_,i)=>PALETTE[i%PALETTE.length]),
+      borderWidth:1,borderRadius:4}]},
+    options:{
+      indexAxis:"y",responsive:true,
+      plugins:{legend:{display:false},
+        tooltip:{callbacks:{label:ctx=>{
+          const tot=sV.reduce((s,v)=>s+v,0);
+          return ` ${ctx.parsed.x} NCs (${(ctx.parsed.x/tot*100).toFixed(1)}%)`;
+        }}}
+      },
+      scales:{x:{grid:{color:CLR.grid}},y:{grid:{display:false}}}
+    }
+  });
+
+  // Comparativo com mês anterior
+  if(smp){
+    const allSetores=[...new Set([...Object.keys(sm),...Object.keys(smp)])].sort((a,b)=>(sm[b]||0)-(sm[a]||0));
+    charts.monthComp = new Chart(document.getElementById("chartMonthComp"),{
+      type:"bar",
+      data:{
+        labels:allSetores,
+        datasets:[
+          {label:fmtM(activeMonth),data:allSetores.map(s=>sm[s]||0),
+            backgroundColor:"rgba(230,57,70,0.7)",borderColor:CLR.accent,borderWidth:1,borderRadius:3},
+          {label:fmtM(prev.m),data:allSetores.map(s=>smp[s]||0),
+            backgroundColor:"rgba(88,166,255,0.5)",borderColor:CLR.blue,borderWidth:1,borderRadius:3}
+        ]
+      },
+      options:{
+        responsive:true,
+        plugins:{legend:{position:"top",labels:{usePointStyle:true,padding:16}}},
+        scales:{
+          x:{grid:{color:CLR.grid},ticks:{font:{size:10}}},
+          y:{grid:{color:CLR.grid}}
+        }
+      }
+    });
+  } else {
+    document.getElementById("chartMonthComp").parentElement.querySelector(".chart-desc").textContent="Sem mês anterior disponível para comparação.";
+  }
+}
+
+// ── Tabelas ──
+let monthlyExpanded = false;
+const MONTHLY_LIMIT = 3;
+
+function tblMonthly(){
+  let data;
+  if(activeMonth){
+    data = RAW.filter(d=>d.m===activeMonth);
+  } else {
+    data = filtByYear(activeYear).slice().reverse();
+  }
+  
+  const totalCount = data.length;
+  const displayData = monthlyExpanded ? data : data.slice(0, MONTHLY_LIMIT);
+  const hasMore = totalCount > MONTHLY_LIMIT;
+  
+  document.getElementById("tbl-monthly-count").textContent = totalCount+" "+(totalCount===1?"mês":"meses");
+  
+  // Mostrar/ocultar botão expandir
+  const footer = document.getElementById("monthly-table-footer");
+  const expandBtn = document.getElementById("expand-monthly-btn");
+  const expandText = document.getElementById("expand-monthly-text");
+  
+  if(hasMore && !activeMonth){
+    footer.style.display = "block";
+    expandText.textContent = monthlyExpanded ? "Ver menos" : `Ver mais ${totalCount - MONTHLY_LIMIT} meses`;
+    expandBtn.classList.toggle("expanded", monthlyExpanded);
+  } else {
+    footer.style.display = "none";
+  }
+  
+  const allData = RAW.slice().reverse(); // para delta
+  document.getElementById("tbody-monthly").innerHTML = displayData.map((d)=>{
+    const taxa = d.T?(d.NC/d.T*100).toFixed(1):"0.0";
+    const col  = pctCol(+taxa);
+    const idx  = allData.findIndex(x=>x.m===d.m);
+    const prev = allData[idx+1];
+    const pRate= prev&&prev.T?(prev.NC/prev.T*100):null;
+    let delta="";
+    if(pRate!==null){
+      const diff=(+taxa-pRate).toFixed(1);
+      const cls=+diff>0?"d-up":+diff<0?"d-dn":"d-neu";
+      const sym=+diff>0?"▲":+diff<0?"▼":"—";
+      delta=`<span class="delta ${cls}">${sym} ${Math.abs(diff)}%</span>`;
+    }
+    return `<tr>
+      <td style="font-weight:600">${fmtM(d.m)}</td>
+      <td>${d.T.toLocaleString("pt-BR")}</td>
+      <td><span class="chip-c">${d.C.toLocaleString("pt-BR")}</span></td>
+      <td><span class="chip-nc">${d.NC.toLocaleString("pt-BR")}</span></td>
+      <td><div class="bar-wrap">
+        <div class="bar-bg"><div class="bar-fill" style="width:${Math.min(+taxa,100)}%;background:${col}"></div></div>
+        <span class="bar-lbl" style="color:${col}">${taxa}%</span>
+      </div></td>
+      <td>${delta}</td>
+    </tr>`;
+  }).join("");
+}
+
+let setorExpanded = false;
+const SETOR_LIMIT = 5;
+
+function tblSetor(){
+  let sd;
+  if(activeMonth){
+    sd = SETOR_MENSAL[activeMonth]||{};
+  } else if(activeYear==="all"){
+    sd = SETOR_NC;
+  } else {
+    sd={};
+    Object.entries(SETOR_ANUAL).forEach(([s,y])=>{ sd[s]=y[+activeYear]||0; });
+  }
+  const sorted=Object.entries(sd).sort((a,b)=>b[1]-a[1]).filter(([,v])=>v>0);
+  const total =sorted.reduce((s,[,v])=>s+v,0);
+  
+  const totalCount = sorted.length;
+  const displayData = setorExpanded ? sorted : sorted.slice(0, SETOR_LIMIT);
+  const hasMore = totalCount > SETOR_LIMIT;
+  
+  document.getElementById("tbl-setor-count").textContent=totalCount+" setores";
+  
+  // Mostrar/ocultar botão expandir
+  const footer = document.getElementById("setor-table-footer");
+  const expandBtn = document.getElementById("expand-setor-btn");
+  const expandText = document.getElementById("expand-setor-text");
+  
+  if(hasMore){
+    footer.style.display = "block";
+    expandText.textContent = setorExpanded ? "Ver menos" : `Ver mais ${totalCount - SETOR_LIMIT} setores`;
+    expandBtn.classList.toggle("expanded", setorExpanded);
+  } else {
+    footer.style.display = "none";
+  }
+  
+  const medals=["🥇","🥈","🥉"];
+  document.getElementById("tbody-setor").innerHTML=displayData.map(([s,nc],i)=>{
+    const pct=(nc/total*100).toFixed(1);
+    const col=PALETTE[i%PALETTE.length];
+    return `<tr>
+      <td style="font-weight:700;font-size:16px">${i<3?medals[i]:"#"+(i+1)}</td>
+      <td style="font-weight:600">${s}</td>
+      <td><span class="chip-nc">${nc.toLocaleString("pt-BR")}</span></td>
+      <td><div class="bar-wrap">
+        <div class="bar-bg"><div class="bar-fill" style="width:${pct}%;background:${col}"></div></div>
+        <span class="bar-lbl" style="color:${col}">${pct}%</span>
+      </div></td>
+    </tr>`;
+  }).join("");
+}
+
+function getFilteredMonthlyData(){
+  if(activeMonth){
+    return RAW.filter(d => d.m === activeMonth);
+  }
+  return filtByYear(activeYear).slice().reverse();
+}
+
+function exportMonthlyCSV(){
+  const data = getFilteredMonthlyData();
+
+  if(!data.length){
+    alert("Não há dados para exportar neste filtro.");
+    return;
+  }
+
+  const rows = [
+    ["Mês", "Total de OPs", "OPs Conformes", "OPs com NC", "Taxa NC %"],
+    ...data.map(d => {
+      const taxa = d.T ? (d.NC / d.T * 100).toFixed(1).replace(".", ",") : "0,0";
+      return [fmtM(d.m), d.T, d.C, d.NC, taxa];
+    })
+  ];
+
+  const csvContent = rows
+    .map(row => row.map(value => `"${String(value).replace(/"/g, '""')}"`).join(";"))
+    .join("\n");
+
+  const blob = new Blob(["\uFEFF" + csvContent], {
+    type: "text/csv;charset=utf-8;"
+  });
+
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+
+  const periodo = activeMonth
+    ? activeMonth
+    : activeYear === "all"
+      ? "todos-periodos"
+      : activeYear;
+
+  link.href = url;
+  link.download = `resumo-mensal-op-nc-${periodo}.csv`;
+  link.click();
+
+  URL.revokeObjectURL(url);
+}
+
+// ── Render principal ──
+function renderAll(){
+  destroyAll();
+  kpis();
+
+  if(activeMonth){
+    // Modo mês
+    document.getElementById("month-view").classList.add("visible");
+    document.getElementById("general-view").style.display="none";
+    document.getElementById("heatmap-section").style.display="none";
+    renderMonthCharts();
+  } else {
+    // Modo geral / ano
+    document.getElementById("month-view").classList.remove("visible");
+    document.getElementById("general-view").style.display="";
+    document.getElementById("heatmap-section").style.display="";
+    renderGeneralCharts();
+    renderHeatmap(activeYear);
+  }
+
+  tblMonthly();
+  tblSetor();
+}
+
+// ── Eventos ──
+document.querySelectorAll(".filter-btn").forEach(btn=>{
+  btn.addEventListener("click",()=>{
+    document.querySelectorAll(".filter-btn").forEach(b=>b.classList.remove("active"));
+    btn.classList.add("active");
+    activeYear = btn.dataset.year;
+    activeMonth = "";
+    document.getElementById("month-select").value="";
+    populateMonthSelect(activeYear);
+    renderAll();
+  });
+});
+
+document.getElementById("month-select").addEventListener("change",function(){
+  activeMonth = this.value;
+  updateMonthUI();
+  renderAll();
+});
+
+document.getElementById("clear-month-btn").addEventListener("click",()=>{
+  activeMonth="";
+  document.getElementById("month-select").value="";
+  updateMonthUI();
+  renderAll();
+});
+
+document.getElementById("export-monthly-btn").addEventListener("click", exportMonthlyCSV);
+
+document.getElementById("expand-monthly-btn").addEventListener("click",()=>{
+  monthlyExpanded = !monthlyExpanded;
+  tblMonthly();
+});
+
+document.getElementById("expand-setor-btn").addEventListener("click",()=>{
+  setorExpanded = !setorExpanded;
+  tblSetor();
+});
+
+// Reset expand state when changing filters
+document.querySelectorAll(".filter-btn").forEach(btn=>{
+  btn.addEventListener("click",()=>{
+    monthlyExpanded = false;
+    setorExpanded = false;
+  });
+});
+
+// ── Init ──
+document.getElementById("last-updated").innerHTML =
+  "Atualizado em: <strong>"+new Date().toLocaleDateString("pt-BR")+"</strong>";
+
+populateMonthSelect("all");
+renderAll();
+</script>
+</body>
+</html>
