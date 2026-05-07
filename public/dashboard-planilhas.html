@@ -571,7 +571,7 @@ const SECTOR_ALIASES = {
     "laboratorio", "laboratório", "lab", "metrologia", "laboratorio/metrologia", "laboratório/metrologia"
   ],
   "Rotulagem": [
-    "rotulagem", "rotulo", "rótulo", "rotulos", "rótulos", "etiqueta", "embalagem", "emabalagem" "etiquetas", "etiquetagem"
+    "rotulagem", "rotulo", "rótulo", "rotulos", "rótulos", "etiqueta", "etiquetas", "etiquetagem"
   ],
   "Estoque": [
     "estoque", "estoq", "armazenamento", "armazem", "armazém", "expedicao", "expedição"
@@ -1526,10 +1526,19 @@ document.querySelectorAll(".filter-btn").forEach(btn=>{
 
 // ── Init ──
 async function initDashboard(){
-  document.getElementById("last-updated").innerHTML = "Carregando Google Planilhas...";
-  await loadPublishedSheet();
+  // Renderiza imediatamente com os dados internos para evitar tela vazia
+  // caso o Google Planilhas demore, falhe por CORS ou cacheie a resposta.
+  normalizeSectorDataSources();
   syncYearButtons();
   populateMonthSelect("all");
+  document.getElementById("last-updated").innerHTML =
+    "Carregando Google Planilhas... <br><span style='font-size:11px'>Exibindo dados internos temporariamente</span>";
+  renderAll();
+
+  // Depois tenta atualizar com a planilha publicada e renderiza novamente.
+  await loadPublishedSheet();
+  syncYearButtons();
+  populateMonthSelect(activeYear || "all");
   renderAll();
 }
 
