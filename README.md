@@ -4,9 +4,6 @@ Dashboard para acompanhamento e controle de **Não Conformidades (NC) em ordens 
 
 O objetivo do projeto é apoiar as áreas do **Sistema de Gestão da Qualidade** na visualização de problemas recorrentes, indicadores de desempenho, tendências mensais e pontos críticos do processo produtivo.
 
-## Site publicado
-
-********************************
 
 ## Objetivo do dashboard
 
@@ -20,16 +17,6 @@ Este dashboard foi desenvolvido para facilitar a análise de:
 - ranking de setores com maior incidência;
 - principais motivos de NC;
 - histórico mensal de OPs e NCs.
-
-## Público-alvo
-
-O dashboard pode ser utilizado por:
-
-- Qualidade;
-- PCP;
-- Produção;
-- Engenharia;
-- Gestão.
 
 ## Tecnologias utilizadas
 
