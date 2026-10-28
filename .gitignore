@@ -11,6 +11,8 @@ node_modules/
 .env.*.local
 
 # Builds
+.next/
+out/
 dist/
 build/
 
@@ -37,3 +39,7 @@ Thumbs.db
 *.bak
 *.backup
 *_backup.*
+
+# Configuração local do Claude Code
+.claude/
+*.tsbuildinfo
