@@ -25,9 +25,7 @@ export function DashboardHeader({ fetchedAt, totalRows }: { fetchedAt: string; t
     <header className="border-b bg-card">
       <div className="mx-auto flex max-w-[1600px] items-center justify-between gap-4 px-4 py-3 sm:px-6">
         <div className="flex min-w-0 items-center gap-3">
-          <div className="grid size-9 shrink-0 place-items-center rounded-lg bg-primary text-sm font-bold text-primary-foreground">
-            OP
-          </div>
+          <img src="/logo-sgq.png" alt="Allied Titanium · SGQ" className="size-9 shrink-0 rounded-lg" />
           <div className="min-w-0">
             <h1 className="truncate text-base font-semibold tracking-tight">Fechamento de OPs</h1>
             <p className="truncate text-xs text-muted-foreground">Não conformidades · Gestão da Qualidade</p>
