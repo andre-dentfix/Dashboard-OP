@@ -24,7 +24,7 @@ import { FilterBar } from "./filter-bar"
 import { DashboardHeader } from "./header"
 import { Heatmap } from "./heatmap"
 import { KpiCards } from "./kpi-cards"
-import { OpKpis, OpTable } from "./op-view"
+import { OpTable } from "./op-view"
 import { Panel, SectionTitle } from "./panel"
 import { RankingList } from "./ranking-list"
 import { ExportButton, exportMonthly, MonthlyTable, NcTable } from "./tables"
@@ -138,14 +138,10 @@ export function Dashboard({ data }: { data: OpsDataset }) {
             current={view.current}
             previous={view.previous}
             previousLabel={view.previousLabel}
-            periodLabel={periodLabel}
+            ops={view.ops}
+            opsPrevious={view.opsPrevious}
             filters={filters}
           />
-        </div>
-
-        <div>
-          <SectionTitle>Visão por OP · {periodLabel}</SectionTitle>
-          <OpKpis current={view.ops} previous={view.opsPrevious} previousLabel={view.previousLabel} />
         </div>
 
         <Panel
