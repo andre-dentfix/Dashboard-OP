@@ -23,7 +23,7 @@ export function nivelTaxa(taxa: number): Nivel {
   return "critico"
 }
 
-export function inPeriod(r: OpRecord, f: Pick<Filters, "year" | "month">): boolean {
+export function inPeriod(r: { month: string }, f: Pick<Filters, "year" | "month">): boolean {
   if (f.month) return r.month === f.month
   if (f.year !== "all") return r.month.startsWith(f.year)
   return true
@@ -71,6 +71,70 @@ export function summarize(records: OpRecord[], f: Filters, period: (r: OpRecord)
   return s
 }
 
+/** Todas as passagens de uma mesma OP pelo SGQ, em ordem cronológica. */
+export interface OpHistory {
+  op: string
+  passagens: OpRecord[]
+  /** Passagens com situação NC */
+  nc: number
+  /** A última passagem está marcada com X em "Finalizadas" */
+  finalizada: boolean
+  /** Data da última passagem; define o período em que a OP é contada */
+  date: string
+  month: string
+  /** Setores envolvidos nas NCs da OP */
+  setores: string[]
+}
+
+/** Agrupa as linhas pelo número da OP. Espera os registros já ordenados por data. */
+export function opHistories(records: OpRecord[]): OpHistory[] {
+  const map = new Map<string, OpRecord[]>()
+  for (const r of records) {
+    const op = r.op.replace(/\s+/g, "")
+    if (!/\d/.test(op)) continue
+    const list = map.get(op)
+    if (list) list.push(r)
+    else map.set(op, [r])
+  }
+  return [...map].map(([op, passagens]) => {
+    const last = passagens[passagens.length - 1]
+    const setores = new Set<string>()
+    let nc = 0
+    for (const p of passagens) {
+      if (p.status !== "NC") continue
+      nc++
+      for (const s of p.setores.length ? p.setores : [SETOR_NAO_CONSTA]) setores.add(s)
+    }
+    return { op, passagens, nc, finalizada: last.finalizada, date: last.date, month: last.month, setores: [...setores] }
+  })
+}
+
+export interface OpSummary {
+  /** OPs distintas cuja última passagem cai no período */
+  total: number
+  finalizadas: number
+  emAberto: number
+  /** OPs sem nenhuma passagem NC */
+  primeira: number
+  /** OPs que passaram mais de uma vez pelo SGQ */
+  retrabalho: number
+  passagens: number
+}
+
+export function summarizeOps(histories: OpHistory[], period: (h: OpHistory) => boolean): OpSummary {
+  const s: OpSummary = { total: 0, finalizadas: 0, emAberto: 0, primeira: 0, retrabalho: 0, passagens: 0 }
+  for (const h of histories) {
+    if (!period(h)) continue
+    s.total++
+    if (h.finalizada) s.finalizadas++
+    else s.emAberto++
+    if (!h.nc) s.primeira++
+    if (h.passagens.length > 1) s.retrabalho++
+    s.passagens += h.passagens.length
+  }
+  return s
+}
+
 export function shiftMonth(month: string, delta: number): string {
   const [y, m] = month.split("-").map(Number)
   const d = new Date(Date.UTC(y, m - 1 + delta, 1))
@@ -84,7 +148,7 @@ export function shiftMonth(month: string, delta: number): string {
 export function previousPeriod(f: Filters, lastMonth: string) {
   if (f.month) {
     const prev = shiftMonth(f.month, -1)
-    return { label: fmtMonth(prev), test: (r: OpRecord) => r.month === prev }
+    return { label: fmtMonth(prev), test: (r: { month: string }) => r.month === prev }
   }
   if (f.year !== "all") {
     const prevYear = String(+f.year - 1)
@@ -92,7 +156,7 @@ export function previousPeriod(f: Filters, lastMonth: string) {
     const partial = !cutoff.endsWith("-12")
     return {
       label: partial ? `${prevYear} (até ${MESES[+cutoff.slice(5) - 1].toLowerCase()})` : prevYear,
-      test: (r: OpRecord) => r.month.startsWith(prevYear) && r.month <= cutoff,
+      test: (r: { month: string }) => r.month.startsWith(prevYear) && r.month <= cutoff,
     }
   }
   return null

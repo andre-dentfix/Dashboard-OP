@@ -8,6 +8,8 @@ export function DataQualityPanel({ quality }: { quality: DataQuality }) {
     { n: quality.semData, text: "linhas sem data válida (ignoradas)" },
     { n: quality.statusDesconhecido, text: "OPs com situação diferente de C ou NC" },
     { n: quality.ncSemSetor, text: "NCs sem setor informado (aparecem como “Não consta”)" },
+    { n: quality.semOp, text: "linhas sem número de OP válido (fora da visão por OP)" },
+    { n: quality.semColunaFinalizadas ? 1 : 0, text: "coluna “Finalizadas” não encontrada: nenhuma OP conta como finalizada" },
   ].filter((i) => i.n > 0)
   const unknown = quality.setoresNaoReconhecidos
 

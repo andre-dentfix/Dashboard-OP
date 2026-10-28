@@ -56,6 +56,7 @@ export function buildRecords(csvText: string): { records: OpRecord[]; quality: D
   const colSector = findColumn(headers, ["Setor (es)", "Setores", "Setor", "Área", "Departamento"])
   const colObs = findColumn(headers, ["Observações encontradas", "Observações", "Observação", "Motivo", "Descrição"])
   const colPeople = findColumn(headers, ["Colaborador(es) envolvido(s)", "Colaboradores", "Colaborador", "Responsável"])
+  const colFinal = findColumn(headers, ["Finalizadas", "Finalizada", "Arquivada"])
   if (colDate < 0) throw new Error("Coluna de data não encontrada na planilha.")
   if (colStatus < 0) throw new Error("Coluna de situação não encontrada na planilha.")
 
@@ -64,6 +65,8 @@ export function buildRecords(csvText: string): { records: OpRecord[]; quality: D
     semData: 0,
     statusDesconhecido: 0,
     ncSemSetor: 0,
+    semOp: 0,
+    semColunaFinalizadas: colFinal < 0,
     setoresNaoReconhecidos: [],
   }
   const unknownSectors = new Map<string, number>()
@@ -91,16 +94,20 @@ export function buildRecords(csvText: string): { records: OpRecord[]; quality: D
       colaboradores = colPeople >= 0 ? splitPeople(row[colPeople] ?? "") : []
     }
 
+    const op = colOp >= 0 ? (row[colOp] ?? "").trim() : ""
+    if (!/\d/.test(op)) quality.semOp++
+
     records.push({
       id: idx,
       date,
       month: date.slice(0, 7),
-      op: colOp >= 0 ? (row[colOp] ?? "").trim() : "",
+      op,
       status,
       setores,
       motivos,
       colaboradores,
-      obs:status === "NC" ? obs : "",
+      obs: status === "NC" ? obs : "",
+      finalizada: colFinal >= 0 && normTxt(row[colFinal]) === "x",
     })
   })
 

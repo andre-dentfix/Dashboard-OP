@@ -88,7 +88,7 @@ export function KpiCards({
   )
 }
 
-function Kpi({
+export function Kpi({
   label,
   value,
   sub,
