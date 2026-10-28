@@ -14,6 +14,8 @@ export interface OpRecord {
   /** Colaboradores envolvidos na NC, como estão escritos na planilha */
   colaboradores: string[]
   obs: string
+  /** Marcada com X na coluna "Finalizadas": OP arquivada pelo SGQ */
+  finalizada: boolean
 }
 
 export interface DataQuality {
@@ -21,6 +23,10 @@ export interface DataQuality {
   semData: number
   statusDesconhecido: number
   ncSemSetor: number
+  /** Linhas sem número de OP válido (ficam fora da visão por OP) */
+  semOp: number
+  /** A planilha não tem a coluna "Finalizadas" */
+  semColunaFinalizadas: boolean
   setoresNaoReconhecidos: { valor: string; qtd: number }[]
 }
 

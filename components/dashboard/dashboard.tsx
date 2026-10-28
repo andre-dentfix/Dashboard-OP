@@ -8,11 +8,13 @@ import {
   inPeriod,
   matchesNc,
   monthlySeries,
+  opHistories,
   previousPeriod,
   sectorMonthMatrix,
   shiftMonth,
   sortedEntries,
   summarize,
+  summarizeOps,
 } from "@/lib/ops/aggregate"
 import { MOTIVOS, SETOR_NAO_CONSTA, SETOR_OUTROS, SETORES } from "@/lib/ops/normalize"
 import type { OpsDataset } from "@/lib/ops/types"
@@ -22,6 +24,7 @@ import { FilterBar } from "./filter-bar"
 import { DashboardHeader } from "./header"
 import { Heatmap } from "./heatmap"
 import { KpiCards } from "./kpi-cards"
+import { OpKpis, OpTable } from "./op-view"
 import { Panel, SectionTitle } from "./panel"
 import { RankingList } from "./ranking-list"
 import { ExportButton, exportMonthly, MonthlyTable, NcTable } from "./tables"
@@ -42,6 +45,7 @@ export function Dashboard({ data }: { data: OpsDataset }) {
   }, [records])
   const years = useMemo(() => [...new Set(allMonths.map((m) => m.slice(0, 4)))], [allMonths])
   const lastMonth = allMonths[allMonths.length - 1] ?? ""
+  const histories = useMemo(() => opHistories(records), [records])
 
   const view = useMemo(() => {
     const current = summarize(records, filters, (r) => inPeriod(r, filters))
@@ -63,6 +67,11 @@ export function Dashboard({ data }: { data: OpsDataset }) {
       return s
     })
 
+    // Visão por OP: só o período vale aqui; setor e motivo filtram as linhas, não as OPs.
+    const opsNoPeriodo = histories.filter((h) => inPeriod(h, filters))
+    const ops = summarizeOps(opsNoPeriodo, () => true)
+    const opsPrevious = prev ? summarizeOps(histories, prev.test) : null
+
     const ncRecords = records.filter((r) => inPeriod(r, filters) && matchesNc(r, filters)).reverse()
 
     return {
@@ -74,8 +83,11 @@ export function Dashboard({ data }: { data: OpsDataset }) {
       matrix: sectorMonthMatrix(records, filters, heatMonths),
       yearRows,
       ncRecords,
+      ops,
+      opsPrevious: opsPrevious && opsPrevious.total ? opsPrevious : null,
+      opsNoPeriodo,
     }
-  }, [records, filters, allMonths, years, lastMonth])
+  }, [records, histories, filters, allMonths, years, lastMonth])
 
   const periodLabel = filters.month
     ? fmtMonthLong(filters.month)
@@ -129,6 +141,11 @@ export function Dashboard({ data }: { data: OpsDataset }) {
             periodLabel={periodLabel}
             filters={filters}
           />
+        </div>
+
+        <div>
+          <SectionTitle>Visão por OP · {periodLabel}</SectionTitle>
+          <OpKpis current={view.ops} previous={view.opsPrevious} previousLabel={view.previousLabel} />
         </div>
 
         <Panel
@@ -208,6 +225,13 @@ export function Dashboard({ data }: { data: OpsDataset }) {
           actions={<ExportButton onClick={() => exportMonthly(view.series)} />}
         >
           <MonthlyTable rows={view.series} selectedMonth={filters.month} onSelectMonth={selectMonth} />
+        </Panel>
+
+        <Panel
+          title="Passagens por OP"
+          description={`${periodLabel} · cada OP aparece uma vez; finalizada só quando a última passagem tem X em Finalizadas. Passe o mouse no histórico para ver a observação.`}
+        >
+          <OpTable key={`${filters.year}-${filters.month}`} histories={view.opsNoPeriodo} />
         </Panel>
 
         <Panel title="OPs com não conformidade" description={`${periodLabel}${filterNote ? ` · ${filterNote}` : ""}`}>

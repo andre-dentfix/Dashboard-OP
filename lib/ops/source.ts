@@ -19,7 +19,7 @@ export async function loadOpsDataset(): Promise<OpsDataset> {
   } catch (err) {
     return {
       records: [],
-      quality: { totalRows: 0, semData: 0, statusDesconhecido: 0, ncSemSetor: 0, setoresNaoReconhecidos: [] },
+      quality: { totalRows: 0, semData: 0, statusDesconhecido: 0, ncSemSetor: 0, semOp: 0, semColunaFinalizadas: false, setoresNaoReconhecidos: [] },
       fetchedAt: new Date().toISOString(),
       error: err instanceof Error ? err.message : String(err),
     }
