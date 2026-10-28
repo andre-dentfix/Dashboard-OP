@@ -1,4 +1,13 @@
-import { fmtInt, fmtPct, LIMITES, nivelTaxa, sortedEntries, type Filters, type Summary } from "@/lib/ops/aggregate"
+import {
+  fmtInt,
+  fmtPct,
+  LIMITES,
+  nivelTaxa,
+  sortedEntries,
+  type Filters,
+  type OpSummary,
+  type Summary,
+} from "@/lib/ops/aggregate"
 import { cn } from "@/lib/utils"
 import { Delta } from "./panel"
 
@@ -12,18 +21,23 @@ export function KpiCards({
   current,
   previous,
   previousLabel,
-  periodLabel,
+  ops,
+  opsPrevious,
   filters,
 }: {
   current: Summary
   previous: Summary | null
   previousLabel?: string
-  periodLabel: string
+  ops: OpSummary
+  opsPrevious: OpSummary | null
   filters: Filters
 }) {
   const nivel = NIVEL[nivelTaxa(current.taxa)]
   const vs = previous && previous.total > 0 ? ` vs ${previousLabel}` : ""
+  const opsVs = opsPrevious && opsPrevious.total > 0 ? ` vs ${previousLabel}` : ""
+  const pct = (n: number, d: number) => (d ? (n / d) * 100 : 0)
   const pctChange = (a: number, b: number) => (b ? ((a - b) / b) * 100 : 0)
+  const primeira = pct(ops.primeira, ops.total)
 
   // Com um setor filtrado, o destaque passa a ser o motivo mais frequente dele.
   const [topName, topValue] = filters.setor
@@ -32,28 +46,47 @@ export function KpiCards({
   const topBase = filters.setor ? current.nc : current.ocorrencias
 
   return (
-    <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
-      <Kpi label="Total de OPs" accent="bg-info" value={fmtInt(current.total)} sub={periodLabel}>
-        {vs && (
+    <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
+      <Kpi
+        label="Total de OPs"
+        accent="bg-info"
+        value={fmtInt(ops.total)}
+        sub={`${fmtInt(ops.passagens)} passagens pelo SGQ · ${fmtInt(ops.retrabalho)} OPs voltaram mais de uma vez`}
+      >
+        {opsVs && (
           <p className="mt-2 text-xs text-muted-foreground">
-            <Delta value={pctChange(current.total, previous!.total)} suffix="%" higherIsBad={false} className="text-muted-foreground" />
-            {vs}
+            <Delta value={pctChange(ops.total, opsPrevious!.total)} suffix="%" higherIsBad={false} className="text-muted-foreground" />
+            {opsVs}
           </p>
         )}
       </Kpi>
 
       <Kpi
-        label="OPs conformes"
+        label="Finalizadas (X)"
         accent="bg-ok"
-        value={fmtInt(current.conformes)}
-        sub={`${fmtPct(current.total ? (current.conformes / current.total) * 100 : 0)} do total`}
-      />
+        value={fmtInt(ops.finalizadas)}
+        sub={`${fmtPct(pct(ops.finalizadas, ops.total))} do total`}
+      >
+        <p className="mt-2 text-xs">
+          <span className="font-semibold text-warn tabular-nums">{fmtInt(ops.emAberto)}</span>{" "}
+          <span className="text-muted-foreground">em aberto (sem X)</span>
+        </p>
+      </Kpi>
+
+      <Kpi label="Aprovadas de primeira" accent="bg-ok" value={fmtPct(primeira)} sub={`${fmtInt(ops.primeira)} OPs sem nenhuma NC`}>
+        {opsVs && (
+          <p className="mt-2 text-xs text-muted-foreground">
+            <Delta value={primeira - pct(opsPrevious!.primeira, opsPrevious!.total)} suffix=" p.p." higherIsBad={false} />
+            {opsVs}
+          </p>
+        )}
+      </Kpi>
 
       <Kpi
-        label={filters.setor || filters.motivo ? "OPs com NC (filtro)" : "OPs com NC"}
+        label={filters.setor || filters.motivo ? "NCs registradas (filtro)" : "NCs registradas"}
         accent="bg-nc"
         value={fmtInt(current.nc)}
-        sub={`${fmtInt(current.ocorrencias)} ocorrências em setores`}
+        sub={`Passagens NC · ${fmtInt(current.ocorrencias)} ocorrências em setores`}
       >
         {vs && (
           <p className="mt-2 text-xs text-muted-foreground">
@@ -63,7 +96,7 @@ export function KpiCards({
         )}
       </Kpi>
 
-      <Kpi label="Taxa de NC" accent={nivel.bar} value={fmtPct(current.taxa)} sub="OPs com NC ÷ total de OPs">
+      <Kpi label="Taxa de NC" accent={nivel.bar} value={fmtPct(current.taxa)} sub="NCs ÷ passagens pelo SGQ">
         <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1">
           <span className={cn("rounded-full px-2 py-0.5 text-[11px] font-semibold", nivel.cls)}>{nivel.label}</span>
           {vs && (
@@ -77,7 +110,6 @@ export function KpiCards({
       </Kpi>
 
       <Kpi
-        className="col-span-2 lg:col-span-1"
         label={filters.setor ? `Principal motivo · ${filters.setor}` : "Setor com mais NCs"}
         accent="bg-primary"
         value={topName}
@@ -88,7 +120,7 @@ export function KpiCards({
   )
 }
 
-export function Kpi({
+function Kpi({
   label,
   value,
   sub,

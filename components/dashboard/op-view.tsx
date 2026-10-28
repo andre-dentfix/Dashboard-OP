@@ -6,62 +6,9 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { downloadCsv } from "@/lib/export-csv"
-import { fmtDate, fmtInt, fmtPct, type OpHistory, type OpSummary } from "@/lib/ops/aggregate"
+import { fmtDate, fmtInt, type OpHistory } from "@/lib/ops/aggregate"
 import { cn } from "@/lib/utils"
-import { Kpi } from "./kpi-cards"
-import { Delta } from "./panel"
 import { ExportButton } from "./tables"
-
-const pct = (n: number, d: number) => (d ? (n / d) * 100 : 0)
-
-export function OpKpis({
-  current,
-  previous,
-  previousLabel,
-}: {
-  current: OpSummary
-  previous: OpSummary | null
-  previousLabel?: string
-}) {
-  const vs = previous && previous.total > 0 ? ` vs ${previousLabel}` : ""
-  const primeira = pct(current.primeira, current.total)
-
-  return (
-    <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
-      <Kpi label="OPs distintas" accent="bg-info" value={fmtInt(current.total)} sub="Cada OP conta uma vez, na data da última passagem" />
-      <Kpi
-        label="Finalizadas (X)"
-        accent="bg-ok"
-        value={fmtInt(current.finalizadas)}
-        sub={`${fmtPct(pct(current.finalizadas, current.total))} · última passagem marcada com X`}
-      />
-      <Kpi
-        label="Em aberto"
-        accent="bg-warn"
-        value={fmtInt(current.emAberto)}
-        sub="Última passagem sem X em Finalizadas"
-      />
-      <Kpi label="Aprovadas de primeira" accent="bg-ok" value={fmtPct(primeira)} sub={`${fmtInt(current.primeira)} OPs sem nenhuma NC`}>
-        {vs && (
-          <p className="mt-2 text-xs text-muted-foreground">
-            <Delta value={primeira - pct(previous!.primeira, previous!.total)} suffix=" p.p." higherIsBad={false} />
-            {vs}
-          </p>
-        )}
-      </Kpi>
-      <Kpi
-        className="col-span-2 lg:col-span-1"
-        label="Passagens por OP"
-        accent="bg-nc"
-        value={(current.total ? current.passagens / current.total : 0).toLocaleString("pt-BR", {
-          minimumFractionDigits: 2,
-          maximumFractionDigits: 2,
-        })}
-        sub={`${fmtInt(current.retrabalho)} OPs voltaram ao SGQ mais de uma vez`}
-      />
-    </div>
-  )
-}
 
 type Mostrar = "retrabalho" | "aberto" | "todas"
 
