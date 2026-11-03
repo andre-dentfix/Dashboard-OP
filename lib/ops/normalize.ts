@@ -102,6 +102,24 @@ export function splitSectors(value: string): { setores: string[]; naoReconhecido
   return { setores: [...setores], naoReconhecidos }
 }
 
+// Quando a coluna de setor vem vazia, a observação costuma dizer onde a falha aconteceu.
+// Regras tiradas das NCs que têm setor preenchido (ex.: "desenho" → Projeto em ~230 casos).
+const OBS_SECTOR_RULES: { setor: string; test: RegExp }[] = [
+  { setor: "Projeto", test: /desenho/ },
+  { setor: "PCP", test: /(visto|assinatura) de liberacao/ },
+  { setor: "Produção", test: /pre-?\s?lavagem|usinagem|tempera|jateamento|desempeno|retificar/ },
+  { setor: "CQ", test: /\bcq\b|setup|inspecao(?! de rotulo)|embalagem/ },
+  { setor: "Rotulagem", test: /rotul|etiqueta/ },
+  { setor: "Almoxarifado", test: /almoxarifado|materia-?\s?prima|materia(l|is) utilizado/ },
+]
+
+/** Deduz os setores a partir do texto da observação. Lista vazia se não houver pista confiável. */
+export function inferSectorsFromObs(obs: string): string[] {
+  if (isEmptyValue(obs)) return []
+  const s = normTxt(obs)
+  return OBS_SECTOR_RULES.filter((r) => r.test.test(s)).map((r) => r.setor)
+}
+
 /** "Marcos Ramos / João Roberto" → ["Marcos Ramos", "João Roberto"] */
 export function splitPeople(value: string): string[] {
   if (isEmptyValue(value)) return []

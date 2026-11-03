@@ -23,6 +23,10 @@ export interface DataQuality {
   semData: number
   statusDesconhecido: number
   ncSemSetor: number
+  /** NCs com a coluna de setor vazia cujo setor foi deduzido pela observação */
+  ncSetorDeduzido: number
+  /** Números das OPs com NC que continuam sem setor (para corrigir na planilha) */
+  opsSemSetor: string[]
   /** Linhas sem número de OP válido (ficam fora da visão por OP) */
   semOp: number
   /** A planilha não tem a coluna "Finalizadas" */

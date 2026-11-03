@@ -1,4 +1,4 @@
-import { classifyMotivos, normTxt, parseDate, parseStatus, splitPeople, splitSectors } from "./normalize"
+import { classifyMotivos, inferSectorsFromObs, normTxt, parseDate, parseStatus, splitPeople, splitSectors } from "./normalize"
 import type { DataQuality, OpRecord } from "./types"
 
 export function parseCSV(text: string): string[][] {
@@ -65,6 +65,8 @@ export function buildRecords(csvText: string): { records: OpRecord[]; quality: D
     semData: 0,
     statusDesconhecido: 0,
     ncSemSetor: 0,
+    ncSetorDeduzido: 0,
+    opsSemSetor: [],
     semOp: 0,
     semColunaFinalizadas: colFinal < 0,
     setoresNaoReconhecidos: [],
@@ -89,7 +91,15 @@ export function buildRecords(csvText: string): { records: OpRecord[]; quality: D
       const parsed = splitSectors(colSector >= 0 ? row[colSector] ?? "" : "")
       setores = parsed.setores
       for (const v of parsed.naoReconhecidos) unknownSectors.set(v, (unknownSectors.get(v) ?? 0) + 1)
-      if (!setores.length) quality.ncSemSetor++
+      if (!setores.length) {
+        setores = inferSectorsFromObs(obs)
+        if (setores.length) quality.ncSetorDeduzido++
+        else {
+          quality.ncSemSetor++
+          const opSemSetor = row[colOp]?.trim() || "?"
+          if (!quality.opsSemSetor.includes(opSemSetor)) quality.opsSemSetor.push(opSemSetor)
+        }
+      }
       motivos = classifyMotivos(obs)
       colaboradores = colPeople >= 0 ? splitPeople(row[colPeople] ?? "") : []
     }
