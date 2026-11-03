@@ -7,6 +7,7 @@ export function DataQualityPanel({ quality }: { quality: DataQuality }) {
   const issues = [
     { n: quality.semData, text: "linhas sem data válida (ignoradas)" },
     { n: quality.statusDesconhecido, text: "OPs com situação diferente de C ou NC" },
+    { n: quality.ncSetorDeduzido, text: "NCs sem setor na planilha, com setor deduzido pela observação" },
     { n: quality.ncSemSetor, text: "NCs sem setor informado (aparecem como “Não consta”)" },
     { n: quality.semOp, text: "linhas sem número de OP válido (fora da visão por OP)" },
     { n: quality.semColunaFinalizadas ? 1 : 0, text: "coluna “Finalizadas” não encontrada: nenhuma OP conta como finalizada" },
@@ -33,6 +34,11 @@ export function DataQualityPanel({ quality }: { quality: DataQuality }) {
               <span className="text-muted-foreground">{i.text}</span>
             </li>
           ))}
+          {quality.opsSemSetor.length > 0 && (
+            <li className="pt-1 text-xs text-muted-foreground">
+              OPs para preencher o setor: <span className="tabular-nums">{quality.opsSemSetor.join(", ")}</span>
+            </li>
+          )}
         </ul>
         {unknown.length > 0 && (
           <div>
