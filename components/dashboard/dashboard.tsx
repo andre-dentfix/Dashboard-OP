@@ -19,7 +19,6 @@ import {
 import { MOTIVOS, SETOR_NAO_CONSTA, SETOR_OUTROS, SETORES } from "@/lib/ops/normalize"
 import type { OpsDataset } from "@/lib/ops/types"
 import { AnnualSummary, type YearRow } from "./annual-summary"
-import { DataQualityPanel } from "./data-quality"
 import { FilterBar } from "./filter-bar"
 import { DashboardHeader } from "./header"
 import { Heatmap } from "./heatmap"
@@ -180,7 +179,7 @@ export function Dashboard({ data }: { data: OpsDataset }) {
               total={view.current.nc}
               selected={filters.motivo}
               onSelect={(motivo) => setFilters({ motivo })}
-              color="bg-warn"
+              color="var(--warn)"
             />
           </Panel>
         </div>
@@ -234,7 +233,6 @@ export function Dashboard({ data }: { data: OpsDataset }) {
           <NcTable key={`${filters.year}-${filters.month}-${filters.setor}-${filters.motivo}`} records={view.ncRecords} />
         </Panel>
 
-        <DataQualityPanel quality={data.quality} />
       </main>
     </div>
   )

@@ -138,9 +138,11 @@ function Kpi({
   children?: React.ReactNode
 }) {
   return (
-    <div className={cn("relative overflow-hidden rounded-xl border bg-card p-4 shadow-xs", className)}>
-      <span className={cn("absolute inset-x-0 top-0 h-0.5", accent)} />
-      <p className="truncate text-xs font-medium text-muted-foreground">{label}</p>
+    <div className={cn("surface-raised lift relative min-w-0 rounded-xl p-4", className)}>
+      <p className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
+        <span className={cn("bar-3d size-2 shrink-0 rounded-full", accent)} aria-hidden />
+        <span className="truncate">{label}</span>
+      </p>
       <p className={cn("mt-1 text-3xl font-semibold tracking-tight tabular-nums", valueClassName)} title={value}>
         {value}
       </p>
@@ -156,15 +158,15 @@ function RateGauge({ taxa }: { taxa: number }) {
   const pos = Math.min(taxa, max) / max
   return (
     <div className="mt-3" aria-hidden>
-      <div className="relative flex h-1.5 overflow-hidden rounded-full">
-        <span className="bg-ok/40" style={{ width: `${(LIMITES.controlado / max) * 100}%` }} />
-        <span className="bg-warn/40" style={{ width: `${((LIMITES.atencao - LIMITES.controlado) / max) * 100}%` }} />
-        <span className="flex-1 bg-nc/40" />
-      </div>
-      <div className="relative h-2">
+      <div className="well relative h-2.5 rounded-full p-0.5">
+        <div className="flex h-full overflow-hidden rounded-full">
+          <span className="bar-3d bg-ok/70" style={{ width: `${(LIMITES.controlado / max) * 100}%` }} />
+          <span className="bar-3d bg-warn/70" style={{ width: `${((LIMITES.atencao - LIMITES.controlado) / max) * 100}%` }} />
+          <span className="bar-3d flex-1 bg-nc/70" />
+        </div>
         <span
-          className="absolute -top-2.5 h-3.5 w-0.5 -translate-x-1/2 rounded-full bg-foreground"
-          style={{ left: `${pos * 100}%` }}
+          className="absolute top-1/2 size-3.5 -translate-x-1/2 -translate-y-1/2 rounded-full border-[3px] border-foreground bg-card"
+          style={{ left: `${pos * 100}%`, boxShadow: "var(--raised)" }}
         />
       </div>
     </div>

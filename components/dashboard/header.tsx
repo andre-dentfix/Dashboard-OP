@@ -22,7 +22,7 @@ export function DashboardHeader({ fetchedAt, totalRows }: { fetchedAt: string; t
   })
 
   return (
-    <header className="border-b bg-card">
+    <header className="surface-raised relative z-40">
       <div className="mx-auto flex max-w-[1600px] items-center justify-between gap-4 px-4 py-3 sm:px-6">
         <div className="flex min-w-0 items-center gap-3">
           <img src="/logo-sgq.png" alt="Allied Titanium · SGQ" className="size-9 shrink-0 rounded-lg" />
