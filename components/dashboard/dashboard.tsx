@@ -17,7 +17,7 @@ import {
   summarizeOps,
 } from "@/lib/ops/aggregate"
 import { MOTIVOS, SETOR_NAO_CONSTA, SETOR_OUTROS, SETORES } from "@/lib/ops/normalize"
-import type { OpsDataset } from "@/lib/ops/types"
+import { unpackRecords, type PackedDataset } from "@/lib/ops/pack"
 import { AnnualSummary, type YearRow } from "./annual-summary"
 import { FilterBar } from "./filter-bar"
 import { DashboardHeader } from "./header"
@@ -30,8 +30,8 @@ import { ExportButton, exportMonthly, MonthlyTable, NcTable } from "./tables"
 import { TrendChart, TrendLegend } from "./trend-chart"
 import { useUrlFilters } from "./use-filters"
 
-export function Dashboard({ data }: { data: OpsDataset }) {
-  const { records } = data
+export function Dashboard({ data }: { data: PackedDataset }) {
+  const records = useMemo(() => unpackRecords(data), [data])
   const [filters, setFilters] = useUrlFilters()
 
   // Todos os meses entre o primeiro e o último registro, sem buracos.
@@ -105,7 +105,7 @@ export function Dashboard({ data }: { data: OpsDataset }) {
 
   return (
     <div className="min-h-screen">
-      <DashboardHeader fetchedAt={data.fetchedAt} totalRows={data.quality.totalRows} />
+      <DashboardHeader fetchedAt={data.fetchedAt} totalRows={data.totalRows} />
       <FilterBar
         filters={filters}
         onChange={setFilters}

@@ -1,3 +1,4 @@
+import { fmtInt } from "@/lib/ops/aggregate"
 import { cn } from "@/lib/utils"
 
 export function Panel({
@@ -53,7 +54,7 @@ export function Delta({
   const sign = rounded > 0 ? "▲" : rounded < 0 ? "▼" : "•"
   return (
     <span className={cn("inline-flex items-center gap-1 text-xs font-medium whitespace-nowrap tabular-nums", tone, className)}>
-      {sign} {Math.abs(rounded).toLocaleString("pt-BR")}
+      {sign} {fmtInt(Math.abs(rounded))}
       {suffix}
     </span>
   )
