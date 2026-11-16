@@ -40,9 +40,11 @@ export function AnnualSummary({
               )}
             >
               <span className="font-semibold tabular-nums">{r.year}</span>
-              <span className="flex h-3 overflow-hidden rounded-full bg-muted" style={{ width: `${(r.total / max) * 100}%` }}>
-                <span className="h-full bg-ok/60" style={{ width: `${(r.conformes / r.total) * 100}%` }} />
-                <span className="h-full bg-nc" style={{ width: `${(r.nc / r.total) * 100}%` }} />
+              <span className="well block rounded-full p-0.5">
+                <span className="flex h-3 overflow-hidden rounded-full" style={{ width: `${(r.total / max) * 100}%` }}>
+                  <span className="bar-3d h-full bg-ok/70" style={{ width: `${(r.conformes / r.total) * 100}%` }} />
+                  <span className="bar-3d h-full bg-nc" style={{ width: `${(r.nc / r.total) * 100}%` }} />
+                </span>
               </span>
               <span className="flex items-baseline gap-3 tabular-nums">
                 <span className="text-xs text-muted-foreground">

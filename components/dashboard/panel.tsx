@@ -14,7 +14,7 @@ export function Panel({
   children: React.ReactNode
 }) {
   return (
-    <section className={cn("min-w-0 rounded-xl border bg-card text-card-foreground shadow-xs", className)}>
+    <section className={cn("surface-raised min-w-0 rounded-xl text-card-foreground", className)}>
       <header className="flex flex-wrap items-start justify-between gap-3 px-5 pt-4 pb-3">
         <div className="min-w-0">
           <h2 className="text-sm font-semibold tracking-tight">{title}</h2>

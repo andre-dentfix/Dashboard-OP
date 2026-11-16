@@ -12,7 +12,7 @@ export function RankingList({
   total,
   selected,
   onSelect,
-  color = "bg-nc",
+  color = "var(--nc)",
   limit = 8,
   emptyText = "Nenhuma ocorrência no período.",
 }: {
@@ -53,10 +53,10 @@ export function RankingList({
                 <span className="truncate font-medium" title={name}>
                   {name}
                 </span>
-                <span className="order-last col-span-3 col-start-2 h-1.5 overflow-hidden rounded-full bg-muted sm:order-none sm:col-span-1 sm:col-start-auto sm:h-2">
+                <span className="well order-last col-span-3 col-start-2 block rounded-[3px] pt-[6px] pr-[10px] pb-[3px] pl-[3px] sm:order-none sm:col-span-1 sm:col-start-auto">
                   <span
-                    className={cn("block h-full rounded-full transition-[width] duration-500", color)}
-                    style={{ width: `${(value / max) * 100}%` }}
+                    className="prism block h-2.5 transition-[width] duration-500"
+                    style={{ width: `${Math.max((value / max) * 100, 2)}%`, "--c": color } as React.CSSProperties}
                   />
                 </span>
                 <span className="flex items-center justify-end gap-2 tabular-nums">

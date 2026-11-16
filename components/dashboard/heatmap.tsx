@@ -3,7 +3,17 @@
 import { fmtInt, fmtMonth, fmtMonthLong } from "@/lib/ops/aggregate"
 import { cn } from "@/lib/utils"
 
-/** Setores × meses: quanto mais forte a cor, mais NCs naquele setor e mês. */
+const MAX_H = 8
+
+/** Laterais do bloco (frente e lado direito) empilhando sombras de 1px, com sombra no chão. */
+function extrusion(h: number, top: string) {
+  const front = `color-mix(in oklch, ${top}, black 32%)`
+  const layers = Array.from({ length: h }, (_, i) => `${(i + 1) / 2}px ${i + 1}px 0 ${front}`)
+  layers.push(`${h / 2 + 1}px ${h + 2}px 4px oklch(0 0 0 / 0.35)`)
+  return layers.join(", ")
+}
+
+/** Setores × meses: quanto mais forte a cor e mais alto o bloco, mais NCs naquele setor e mês. */
 export function Heatmap({
   matrix,
   months,
@@ -26,7 +36,7 @@ export function Heatmap({
 
   return (
     <div className="overflow-x-auto">
-      <table className="w-full border-separate border-spacing-0.5 text-xs">
+      <table className="w-full border-separate border-spacing-x-1 border-spacing-y-1.5 pt-2 text-xs">
         <thead>
           <tr>
             <th className="sticky left-0 z-10 bg-card pr-2 text-left font-medium text-muted-foreground">Setor</th>
@@ -58,7 +68,10 @@ export function Heatmap({
               </th>
               {months.map((m) => {
                 const v = byMonth.get(m) ?? 0
-                const intensity = v ? 12 + (v / max) * 88 : 0
+                const intensity = v ? 18 + (v / max) * 82 : 0
+                // Bloco extrudado: quanto mais NCs, mais alto ele sobe (até MAX_H px).
+                const h = v ? Math.max(1, Math.round((v / max) * MAX_H)) : 0
+                const top = `color-mix(in oklch, var(--nc) ${intensity}%, var(--card))`
                 return (
                   <td key={m} className="p-0">
                     <button
@@ -66,16 +79,20 @@ export function Heatmap({
                       title={`${setor} · ${fmtMonthLong(m)}: ${fmtInt(v)} NC`}
                       onClick={() => onSelect(setor, m)}
                       className={cn(
-                        "grid h-7 w-full place-items-center rounded-[4px] tabular-nums transition-transform hover:scale-110 hover:ring-1 hover:ring-foreground/40",
-                        v ? "font-medium" : "text-transparent",
-                        intensity > 55 ? "text-white" : "text-foreground",
-                        m === selectedMonth && setor === selectedSetor && "ring-2 ring-foreground",
+                        "grid h-7 w-full place-items-center rounded-[3px] tabular-nums transition-[filter] duration-150 hover:brightness-115",
+                        v ? "font-medium" : "well text-transparent",
+                        intensity > 72 ? "text-white" : "text-foreground",
+                        m === selectedMonth && setor === selectedSetor && "outline-2 outline-offset-1 outline-foreground",
                       )}
-                      style={{
-                        background: v
-                          ? `color-mix(in oklch, var(--nc) ${intensity}%, transparent)`
-                          : "color-mix(in oklch, var(--muted) 60%, transparent)",
-                      }}
+                      style={
+                        v
+                          ? {
+                              background: `linear-gradient(180deg, oklch(1 0 0 / 0.14), oklch(1 0 0 / 0)), ${top}`,
+                              translate: `${-h / 2}px ${-h}px`,
+                              boxShadow: extrusion(h, top),
+                            }
+                          : undefined
+                      }
                     >
                       {v || "·"}
                     </button>

@@ -34,7 +34,7 @@ export function TrendChart({
       <ResponsiveContainer>
         <ComposedChart
           data={data}
-          margin={{ top: 8, right: 4, left: -12, bottom: 0 }}
+          margin={{ top: 14, right: 4, left: -12, bottom: 0 }}
           onClick={(e) => {
             const m = e?.activePayload?.[0]?.payload?.month as string | undefined
             if (m) onSelectMonth(m === selectedMonth ? "" : m)
@@ -57,12 +57,20 @@ export function TrendChart({
           <Tooltip content={<TrendTooltip />} cursor={{ fill: "var(--accent)", opacity: 0.5 }} />
           <ReferenceLine yAxisId="taxa" y={LIMITES.controlado} stroke="var(--ok)" strokeDasharray="4 4" strokeOpacity={0.6} />
           <ReferenceLine yAxisId="taxa" y={LIMITES.atencao} stroke="var(--nc)" strokeDasharray="4 4" strokeOpacity={0.6} />
-          <Bar yAxisId="ops" dataKey="conformes" name="Conformes" stackId="ops" fill="var(--ok)" fillOpacity={0.55} maxBarSize={28}>
+          <Bar
+            yAxisId="ops"
+            dataKey="conformes"
+            name="Conformes"
+            stackId="ops"
+            fill="color-mix(in oklch, var(--ok) 62%, var(--card))"
+            maxBarSize={28}
+            shape={PrismBar}
+          >
             {data.map((d) => (
               <Cell key={d.month} opacity={dim(d.month)} />
             ))}
           </Bar>
-          <Bar yAxisId="ops" dataKey="nc" name="Com NC" stackId="ops" fill="var(--nc)" radius={[3, 3, 0, 0]} maxBarSize={28}>
+          <Bar yAxisId="ops" dataKey="nc" name="Com NC" stackId="ops" fill="var(--nc)" maxBarSize={28} shape={PrismBar}>
             {data.map((d) => (
               <Cell key={d.month} opacity={dim(d.month)} />
             ))}
@@ -80,6 +88,30 @@ export function TrendChart({
         </ComposedChart>
       </ResponsiveContainer>
     </div>
+  )
+}
+
+/** Barra como prisma isométrico: frente, topo mais claro e lateral direita mais escura. */
+function PrismBar(props: unknown) {
+  const { x = 0, y = 0, width = 0, height = 0, fill = "currentColor", opacity = 1 } = props as {
+    x?: number
+    y?: number
+    width?: number
+    height?: number
+    fill?: string
+    opacity?: number
+  }
+  if (!height || height <= 0 || !width) return <g />
+  const d = Math.max(2, Math.min(7, width * 0.3))
+  const w = width - d
+  const top = `color-mix(in oklch, ${fill}, white 30%)`
+  const side = `color-mix(in oklch, ${fill}, black 30%)`
+  return (
+    <g opacity={opacity}>
+      <rect x={x} y={y} width={w} height={height} style={{ fill }} />
+      <path d={`M${x},${y} l${d},${-d} h${w} l${-d},${d} z`} style={{ fill: top }} />
+      <path d={`M${x + w},${y} l${d},${-d} v${height} l${-d},${d} z`} style={{ fill: side }} />
+    </g>
   )
 }
 

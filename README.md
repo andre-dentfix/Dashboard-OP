@@ -11,8 +11,6 @@ Os dados vêm direto da planilha **“Controle de fechamento de OPs”** no Goog
 - **Ranking de setores e de motivos**, com variação em relação ao período anterior.
 - **Mapa de calor setor × mês**, para ver rapidamente onde e quando os problemas se concentram.
 - **Resumo anual**, **histórico mensal** e a **lista de OPs com NC**, com busca e exportação para Excel (CSV).
-- **Qualidade dos dados**: linhas sem data, NCs sem setor e nomes de setor que não foram reconhecidos, para corrigir na planilha.
-
 Tudo é clicável: clicar em um mês, setor, motivo, ano ou célula do mapa de calor aplica o filtro. Os filtros ficam na URL (ex.: `/?ano=2025&setor=CQ`), então dá para compartilhar o link de uma visão específica.
 
 ## Como os dados são interpretados
