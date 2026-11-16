@@ -214,9 +214,16 @@ export function fmtMonthLong(month: string): string {
   return `${MESES[+m - 1]} de ${y}`
 }
 
-export const fmtInt = (n: number) => n.toLocaleString("pt-BR")
-export const fmtPct = (n: number, digits = 1) =>
-  `${n.toLocaleString("pt-BR", { minimumFractionDigits: digits, maximumFractionDigits: digits })}%`
+// Formatadores criados uma vez: `toLocaleString` monta um novo Intl.NumberFormat a cada chamada.
+const INT = new Intl.NumberFormat("pt-BR")
+const PCT = new Map<number, Intl.NumberFormat>()
+
+export const fmtInt = (n: number) => INT.format(n)
+export function fmtPct(n: number, digits = 1) {
+  let f = PCT.get(digits)
+  if (!f) PCT.set(digits, (f = new Intl.NumberFormat("pt-BR", { minimumFractionDigits: digits, maximumFractionDigits: digits })))
+  return `${f.format(n)}%`
+}
 
 export function fmtDate(date: string): string {
   const [y, m, d] = date.split("-")

@@ -142,9 +142,17 @@
   }
   body {
     @apply bg-background text-foreground;
-    background-image: linear-gradient(180deg, var(--page-top), var(--page-bottom) 900px);
-    background-attachment: fixed;
     font-feature-settings: 'tnum';
+  }
+  /* Degradê preso à tela numa camada própria. Mesmo visual de `background-attachment: fixed`,
+     mas sem repintar a página inteira (e suas sombras) a cada rolagem. */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    background-image: linear-gradient(180deg, var(--page-top), var(--page-bottom) 900px);
   }
 }
 
